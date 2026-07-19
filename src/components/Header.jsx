@@ -1,11 +1,16 @@
 import { NavLink } from "react-router-dom";
+import { computeStreak } from "../lib/stats.js";
+import { todayISO } from "../lib/srs.js";
 
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/library", label: "My Library" },
+  { to: "/review", label: "Review" },
 ];
 
 export default function Header({ theme, onToggleTheme }) {
+  const streak = computeStreak(todayISO());
+
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-5 py-3">
@@ -33,14 +38,37 @@ export default function Header({ theme, onToggleTheme }) {
           ))}
         </nav>
 
-        <button
-          onClick={onToggleTheme}
-          aria-label="Toggle dark mode"
-          className="rounded-full border border-line p-2 text-sm transition hover:border-ink-soft"
-        >
-          {theme === "dark" ? "☀️" : "🌙"}
-        </button>
+        <div className="flex items-center gap-2">
+          {streak > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-sec-steps/12 px-2.5 py-1 text-xs font-bold text-sec-steps">
+              <span className="animate-flame">🔥</span> {streak}
+            </span>
+          )}
+          <button
+            onClick={onToggleTheme}
+            aria-label="Toggle dark mode"
+            className="rounded-full border border-line p-2 text-sm transition hover:border-ink-soft"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+        </div>
       </div>
+      <nav className="flex items-center gap-1 overflow-x-auto border-t border-line px-5 py-1.5 sm:hidden">
+        {NAV.map((n) => (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.to === "/"}
+            className={({ isActive }) =>
+              `rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition ${
+                isActive ? "bg-brand-pink/12 text-brand-pink" : "text-ink-soft"
+              }`
+            }
+          >
+            {n.label}
+          </NavLink>
+        ))}
+      </nav>
     </header>
   );
 }
