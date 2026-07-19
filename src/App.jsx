@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header.jsx";
+import UsagePanel from "./components/UsagePanel.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LessonPage from "./pages/LessonPage.jsx";
 import LibraryPage from "./pages/LibraryPage.jsx";
@@ -28,6 +29,7 @@ export default function App() {
       <footer className="mx-auto max-w-4xl px-5 py-8 text-center text-xs text-ink-soft">
         No conversation history is sent per lesson — each topic is generated independently to keep API costs minimal.
       </footer>
+      <UsagePanel />
     </div>
   );
 }
