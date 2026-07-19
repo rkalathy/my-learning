@@ -187,7 +187,7 @@ Called with prompt caching:
 system: [{ type: "text", text: TEACHING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }]
 ```
 
-Model: `claude-sonnet-4-6`. `max_tokens` per difficulty: eli12 = 900, standard = 1600, deep = 2600.
+Model: `claude-sonnet-4-6`. `max_tokens` per difficulty: eli12 = 1600, standard = 2400, deep = 3600 — raised from the original spec's ~800/1500/2500 estimates after real testing showed the full 9-section JSON shape truncating mid-response at those lower ceilings (both the first attempt and the automatic retry, since both share the same cap). `max_tokens` is a ceiling, not a cost — Anthropic bills actual output tokens produced — so err generous here rather than re-tuning tightly.
 
 ---
 

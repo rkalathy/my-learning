@@ -8,12 +8,21 @@
 export const MODEL = "claude-sonnet-4-6";
 
 // Token ceilings per difficulty — a cap, not a target (Anthropic bills by
-// actual output tokens produced). Keeps a runaway response from blowing
-// past what a lesson actually needs, per the token-efficiency requirement.
+// actual output tokens produced, not this ceiling). The full 9-section
+// JSON shape (tags, one_line, analogy, why, 4-6 steps, an action code
+// block, 2-3 confusions, 3 interview Q&As + a curveball, memory_hook, and
+// 2+3+2-3 related-topic entries each with a "why") is a lot of structured
+// content — the original spec's suggested ~800/1500/2500 estimates proved
+// too tight in practice and truncated mid-JSON (caught during real testing:
+// the response got cut off at the max_tokens boundary, both the original
+// attempt AND the one automatic retry, since both use the same ceiling —
+// see api/teach.js). Raised with real headroom; if you touch the lesson
+// schema and add fields, re-verify these aren't tight again rather than
+// assuming the old margin still holds.
 export const MAX_TOKENS_BY_DIFFICULTY = {
-  eli12: 900,
-  standard: 1600,
-  deep: 2600,
+  eli12: 1600,
+  standard: 2400,
+  deep: 3600,
 };
 
 export const GRADING_MAX_TOKENS = 700;

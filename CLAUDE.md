@@ -107,8 +107,10 @@ src/
   into two components.
 - **Practice-exercise generation is on-demand only**, triggered by
   clicking "Download practice ZIP" — never as part of the main teaching
-  call. This keeps every lesson generation's `max_tokens` (900/1600/2600
-  by difficulty) cheap regardless of whether a ZIP is ever requested.
+  call. This keeps every lesson generation's `max_tokens` (1600/2400/3600
+  by difficulty — see `api/_prompts.js` for why these are higher than the
+  original spec's estimate) cheap regardless of whether a ZIP is ever
+  requested.
 - **The SETUP_GUIDE.md inside a practice ZIP is templated in
   `src/lib/export.js`'s `buildSetupGuide()`, not written by the LLM.**
   Only the topic-specific fields (filename, run command, expected
