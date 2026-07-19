@@ -64,7 +64,7 @@ export default function ComparePage() {
       </div>
       <div className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-5 sm:flex-row sm:divide-x sm:divide-line">
         <Column lesson={lessons[0]} />
-        <div className="sm:pl-5">
+        <div className="min-w-0 flex-1 sm:pl-5">
           <Column lesson={lessons[1]} />
         </div>
       </div>
