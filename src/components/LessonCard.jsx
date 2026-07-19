@@ -2,6 +2,7 @@ import { SECTIONS, DIFFICULTIES } from "../lib/sections.js";
 import SectionCard from "./SectionCard.jsx";
 import RelatedChips from "./RelatedChips.jsx";
 import CopyButton from "./CopyButton.jsx";
+import DownloadMenu from "./DownloadMenu.jsx";
 
 function StepsList({ steps }) {
   return (
@@ -126,6 +127,7 @@ export default function LessonCard({ lesson, difficulty, onDifficultyChange, onR
           >
             {regenerating ? "Regenerating…" : "↻ Regenerate"}
           </button>
+          <DownloadMenu lesson={lesson} />
         </div>
       </div>
 

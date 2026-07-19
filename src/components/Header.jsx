@@ -1,6 +1,9 @@
 import { NavLink } from "react-router-dom";
 
-const NAV = [{ to: "/", label: "Home" }];
+const NAV = [
+  { to: "/", label: "Home" },
+  { to: "/library", label: "My Library" },
+];
 
 export default function Header({ theme, onToggleTheme }) {
   return (
