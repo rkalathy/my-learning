@@ -67,7 +67,7 @@ function InterviewCorner({ interview_qa, interview_curveball }) {
 // and regenerate control. Quiz Me and Download land in M3/M4/M7 as
 // additions to the header action row below, without touching the
 // section-rendering logic here.
-export default function LessonCard({ lesson, difficulty, onDifficultyChange, onRegenerate, regenerating }) {
+export default function LessonCard({ lesson, difficulty, onDifficultyChange, onRegenerate, onQuizMe, regenerating }) {
   const bySections = {
     one_line: <p className="text-lg font-semibold">{lesson.one_line}</p>,
     analogy: <p>{lesson.analogy}</p>,
@@ -120,6 +120,12 @@ export default function LessonCard({ lesson, difficulty, onDifficultyChange, onR
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={onQuizMe}
+            className="rounded-full bg-white px-4 py-2 text-sm font-bold text-brand-pink shadow-sm transition hover:opacity-90"
+          >
+            🎯 Quiz Me
+          </button>
           <button
             onClick={onRegenerate}
             disabled={regenerating}

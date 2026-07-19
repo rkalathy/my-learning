@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LessonCard from "../components/LessonCard.jsx";
+import QuizMode from "../components/QuizMode.jsx";
 import { teachTopic } from "../lib/api.js";
 import { saveToLibrary } from "../lib/store.js";
 import { todayISO } from "../lib/srs.js";
@@ -26,6 +27,7 @@ export default function LessonPage() {
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
   const [cacheHit, setCacheHit] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
 
   const load = useCallback(
@@ -119,8 +121,10 @@ export default function LessonPage() {
         difficulty={difficulty}
         onDifficultyChange={handleDifficultyChange}
         onRegenerate={() => load("regenerate", difficulty)}
+        onQuizMe={() => setShowQuiz(true)}
         regenerating={regenerating}
       />
+      {showQuiz && <QuizMode topic={lesson.topic} onClose={() => setShowQuiz(false)} />}
     </div>
   );
 }
