@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { downloadMarkdown, downloadJSON } from "../lib/export.js";
+import { downloadMarkdown, downloadJSON, downloadLessonPdf, downloadLessonDocx, downloadPracticeZip } from "../lib/export.js";
+import { generatePractice } from "../lib/api.js";
 
-// M3 version — Markdown/JSON only. PDF, Word, and the practice ZIP are
-// added to this same menu in M7 without changing the open/close/outside
-// -click plumbing below.
 export default function DownloadMenu({ lesson }) {
   const [open, setOpen] = useState(false);
+  const [generatingZip, setGeneratingZip] = useState(false);
+  const [error, setError] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -16,10 +16,29 @@ export default function DownloadMenu({ lesson }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  async function handlePracticeZip() {
+    setError(null);
+    setGeneratingZip(true);
+    try {
+      const practice = await generatePractice(lesson.topic, lesson.steps);
+      await downloadPracticeZip(lesson.topic, practice);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGeneratingZip(false);
+      setOpen(false);
+    }
+  }
+
   const items = [
+    { label: "📄 PDF", action: () => downloadLessonPdf(lesson) },
+    { label: "📝 Word (.docx)", action: () => downloadLessonDocx(lesson) },
     { label: "🔡 Markdown", action: () => downloadMarkdown(lesson) },
     { label: "{ } JSON", action: () => downloadJSON(lesson) },
   ];
+  if (lesson.is_code_relevant) {
+    items.push({ label: generatingZip ? "⏳ Building ZIP…" : "🧪 Practice ZIP (code + dataset)", action: handlePracticeZip, disabled: generatingZip });
+  }
 
   return (
     <div className="relative" ref={ref}>
@@ -30,19 +49,21 @@ export default function DownloadMenu({ lesson }) {
         ⬇ Download
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+        <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
           {items.map((item) => (
             <button
               key={item.label}
+              disabled={item.disabled}
               onClick={() => {
                 item.action();
-                setOpen(false);
+                if (!item.disabled && item.label !== "⏳ Building ZIP…") setOpen(false);
               }}
-              className="block w-full px-4 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-bg"
+              className="block w-full px-4 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-bg disabled:opacity-50"
             >
               {item.label}
             </button>
           ))}
+          {error && <p className="border-t border-line px-4 py-2 text-xs text-sec-confusions">{error}</p>}
         </div>
       )}
     </div>

@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getLibraryList, exportLibraryAsJSON } from "../lib/store.js";
-import { downloadTextFile } from "../lib/export.js";
+import { getLibraryList, getCachedLesson, exportLibraryAsJSON } from "../lib/store.js";
+import { downloadLibraryPdf, downloadLibraryDocx, downloadTextFile } from "../lib/export.js";
 import { tagColor } from "../lib/sections.js";
 
-// M3 version — search, tag filter, reopen, and a JSON export of the whole
-// library. The combined PDF/Word "study book" download is added in M7
-// once export.js grows PDF/Word builders.
 export default function LibraryPage() {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("all");
+  const [busy, setBusy] = useState(null);
   const navigate = useNavigate();
 
   const library = useMemo(() => getLibraryList(), []);
@@ -21,16 +19,52 @@ export default function LibraryPage() {
     return true;
   });
 
+  function collectLessons() {
+    return library.map((l) => getCachedLesson(l.topic, l.currentDifficulty)).filter(Boolean);
+  }
+
+  async function downloadAll(format) {
+    setBusy(format);
+    try {
+      const lessons = collectLessons();
+      if (lessons.length === 0) {
+        alert("No cached lessons to export yet.");
+        return;
+      }
+      if (format === "pdf") await downloadLibraryPdf(lessons);
+      else if (format === "docx") await downloadLibraryDocx(lessons);
+      else if (format === "json") downloadTextFile("my-learning-library.json", exportLibraryAsJSON(), "application/json");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-extrabold text-ink">My Library</h1>
-        <button
-          onClick={() => downloadTextFile("my-learning-library.json", exportLibraryAsJSON(), "application/json")}
-          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink-soft"
-        >
-          ⬇ Export library (JSON)
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => downloadAll("pdf")}
+            disabled={busy === "pdf"}
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink-soft disabled:opacity-50"
+          >
+            {busy === "pdf" ? "Building…" : "⬇ Study book (PDF)"}
+          </button>
+          <button
+            onClick={() => downloadAll("docx")}
+            disabled={busy === "docx"}
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink-soft disabled:opacity-50"
+          >
+            {busy === "docx" ? "Building…" : "⬇ Study book (Word)"}
+          </button>
+          <button
+            onClick={() => downloadAll("json")}
+            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink-soft"
+          >
+            ⬇ JSON
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
