@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* Manual dark mode: toggled via a `dark` class on <html> (see
+   src/lib/theme.js), not just prefers-color-scheme, so the in-app toggle
+   works regardless of OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-heading: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Nunito", ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand gradient: violet -> pink -> orange, used on the hero and any
+     primary CTA. */
+  --color-brand-violet: #8b5cf6;
+  --color-brand-pink: #ec4899;
+  --color-brand-orange: #f97316;
+
+  /* One color per lesson section — each of the 9 section cards uses its
+     own color consistently (border, icon chip, heading). Keep this list
+     the single source of truth; components import from
+     src/lib/sections.js rather than hardcoding hex values. */
+  --color-sec-one-line: #6366f1;
+  --color-sec-analogy: #8b5cf6;
+  --color-sec-why: #14b8a6;
+  --color-sec-steps: #f97316;
+  --color-sec-action: #10b981;
+  --color-sec-confusions: #f59e0b;
+  --color-sec-interview: #ec4899;
+  --color-sec-memory: #eab308;
+  --color-sec-related: #06b6d4;
+
+  --color-bg: #f8f7ff;
+  --color-surface: #ffffff;
+  --color-ink: #1e1b2e;
+  --color-ink-soft: #6b6480;
+  --color-line: #e9e5f7;
+}
+
+:root[data-theme="dark"],
+.dark {
+  --color-bg: #14121f;
+  --color-surface: #1e1b30;
+  --color-ink: #f1eefc;
+  --color-ink-soft: #a89fc9;
+  --color-line: #322c4c;
+}
+
+html {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 8px;
+}
+
+/* Section-card prose (lesson body text, code blocks) */
+.prose-lesson p {
+  margin: 0 0 0.6em;
+  line-height: 1.6;
+}
+.prose-lesson p:last-child {
+  margin-bottom: 0;
+}
+.prose-lesson code {
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  padding: 0.1em 0.4em;
+  border-radius: 0.3em;
+  font-size: 0.9em;
+}
+.prose-lesson pre {
+  background: color-mix(in srgb, var(--color-ink) 92%, transparent);
+  color: #f1eefc;
+  padding: 0.9em 1em;
+  border-radius: 0.7em;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-slide-up {
+  animation: fade-slide-up 0.4s ease-out both;
+}
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(-2deg);
+  }
+  50% {
+    transform: scale(1.08) rotate(2deg);
+  }
+}
+.animate-flame {
+  animation: flame-flicker 1.4s ease-in-out infinite;
+}
