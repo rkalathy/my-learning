@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage.jsx";
 import LessonPage from "./pages/LessonPage.jsx";
 import LibraryPage from "./pages/LibraryPage.jsx";
 import ReviewPage from "./pages/ReviewPage.jsx";
+import ComparePage from "./pages/ComparePage.jsx";
 import { initTheme, toggleTheme } from "./lib/theme.js";
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/lesson/:topicSlug" element={<LessonPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/review" element={<ReviewPage />} />
+          <Route path="/compare/:topicA/:topicB" element={<ComparePage />} />
         </Routes>
       </main>
       <footer className="mx-auto max-w-4xl px-5 py-8 text-center text-xs text-ink-soft">
