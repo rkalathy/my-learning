@@ -15,6 +15,36 @@ export function cacheKey(parts) {
 }
 
 /**
+ * One non-streaming Claude call that must return JSON matching a shape,
+ * with the "retry once on invalid JSON" behavior PROMPT.md requires
+ * uniformly (originally only implemented in teach.js's streaming path —
+ * quiz.js/grade.js/practice.js need it too, since any of them can truncate
+ * or wander off-format just like the lesson call can).
+ */
+export async function createJsonCompletion({ client, model, maxTokens, systemPrompt, userMessage }) {
+  async function attempt(message) {
+    const response = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: message }],
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    return { raw: textBlock ? textBlock.text : "", usage: response.usage };
+  }
+
+  let { raw, usage } = await attempt(userMessage);
+  try {
+    return { parsed: JSON.parse(extractJson(raw)), usage };
+  } catch {
+    ({ raw, usage } = await attempt(
+      `${userMessage}\n\nYour previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.`,
+    ));
+    return { parsed: JSON.parse(extractJson(raw)), usage };
+  }
+}
+
+/**
  * Minimal in-memory LRU, keyed by hash(topic|difficulty|...). Lives for the
  * lifetime of a warm serverless instance — a real hit rate booster across
  * requests that land on the same warm function, though (unlike Vercel KV)

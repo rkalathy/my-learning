@@ -105,6 +105,13 @@ src/
   `QuizMode.jsx` is reused for both the 5-question "Quiz Me" flow and
   the 2-question review mini-quiz (`questionCount` prop) — don't fork it
   into two components.
+- **Every non-streaming Claude call (`quiz.js`, `grade.js`, `practice.js`)
+  goes through `createJsonCompletion()` in `api/_util.js`**, which strips
+  markdown fences and retries once on invalid JSON — the same robustness
+  `teach.js` has for its streaming path. Don't call
+  `client.messages.create()` directly in a new route; real testing
+  already caught `/api/grade` truncating mid-response with no retry
+  before this helper existed.
 - **Practice-exercise generation is on-demand only**, triggered by
   clicking "Download practice ZIP" — never as part of the main teaching
   call. This keeps every lesson generation's `max_tokens` (1600/2400/3600

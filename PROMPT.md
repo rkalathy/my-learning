@@ -224,6 +224,8 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 }
 ```
 
+`max_tokens`: quiz generation = 800, grading = 1600 (raised from the original ~500/700 estimates — grading especially truncated in real testing, since 5 questions each need a score/missed/model_answer). Both, plus practice generation, now go through `createJsonCompletion()` in `api/_util.js`, the same "strip fences, retry once on invalid JSON" helper `api/teach.js` already used — originally only the lesson call had this retry; real testing surfaced a truncation failure on `/api/grade` that a retry (and the raised ceiling) both needed to fix.
+
 ### Practice-exercise generation (`PRACTICE_SYSTEM_PROMPT`)
 
 Used by `api/practice.js`, called **only on-demand** (the user clicks "Download practice ZIP" for a code-relevant topic) — never as part of the main teaching call, so every lesson generation stays cheap regardless of whether the ZIP is ever downloaded. Deliberately does not ask the model to write the beginner setup guide's OS-specific steps — those are a static template in `src/lib/export.js`'s `buildSetupGuide()`, built from this call's `run_command`/`expected_output`/`setup_notes` fields, since that's both cheaper and more reliable than trusting the model to reproduce Windows/Mac instructions correctly every time.

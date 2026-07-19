@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { MODEL, GRADING_MAX_TOKENS, QUIZ_GRADING_SYSTEM_PROMPT } from "./_prompts.js";
-import { extractJson } from "./_util.js";
+import { createJsonCompletion } from "./_util.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -39,20 +39,19 @@ export default async function handler(req, res) {
     .join("\n\n")}`;
 
   try {
-    const message = await client.messages.create({
+    const { parsed, usage } = await createJsonCompletion({
+      client,
       model: MODEL,
-      max_tokens: GRADING_MAX_TOKENS,
-      system: [{ type: "text", text: QUIZ_GRADING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userMessage }],
+      maxTokens: GRADING_MAX_TOKENS,
+      systemPrompt: QUIZ_GRADING_SYSTEM_PROMPT,
+      userMessage,
     });
-    const textBlock = message.content.find((b) => b.type === "text");
-    const parsed = JSON.parse(extractJson(textBlock ? textBlock.text : ""));
     res.status(200).json({
       ...parsed,
       usage: {
-        input_tokens: message.usage?.input_tokens ?? 0,
-        output_tokens: message.usage?.output_tokens ?? 0,
-        cache_read_input_tokens: message.usage?.cache_read_input_tokens ?? 0,
+        input_tokens: usage?.input_tokens ?? 0,
+        output_tokens: usage?.output_tokens ?? 0,
+        cache_read_input_tokens: usage?.cache_read_input_tokens ?? 0,
       },
     });
   } catch (err) {

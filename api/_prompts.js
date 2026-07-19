@@ -25,7 +25,15 @@ export const MAX_TOKENS_BY_DIFFICULTY = {
   deep: 3600,
 };
 
-export const GRADING_MAX_TOKENS = 700;
+// Grading 5 questions each need a score, a "missed" explanation, and a
+// ~30-second-spoken model_answer, plus an overall_score and summary — the
+// original 700 estimate truncated mid-response in real testing (same
+// failure mode as the lesson max_tokens, see below). Raised with headroom.
+export const GRADING_MAX_TOKENS = 1600;
+
+// 5 interview-style questions is short output, but real headroom still
+// beats a truncated array on a verbose topic.
+export const QUIZ_MAX_TOKENS = 800;
 
 // The lesson JSON shape, described compactly (short snake_case keys, no
 // repeated topic name per section) so the instruction itself doesn't cost
