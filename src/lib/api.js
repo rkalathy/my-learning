@@ -118,9 +118,9 @@ export async function gradeQuiz(topic, answers) {
   return data;
 }
 
-/** On-demand practice-exercise generation — only called when the user clicks "Download practice ZIP". */
-export async function generatePractice(topic, steps) {
-  const cached = getCachedPractice(topic);
+/** On-demand practice-exercise generation for one difficulty level — only called when the user clicks "Download Practice Notebook". */
+export async function generatePractice(topic, difficulty, steps) {
+  const cached = getCachedPractice(topic, difficulty);
   if (cached) {
     logUsage({ topic, kind: "practice", cached: true, source: "client_cache", inputTokens: 0, outputTokens: 0 });
     return cached;
@@ -129,14 +129,14 @@ export async function generatePractice(topic, steps) {
   const res = await fetch("/api/practice", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic, steps }),
+    body: JSON.stringify({ topic, difficulty, steps }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => null);
     throw new Error(err?.error ?? "Failed to generate practice exercise");
   }
   const data = await res.json();
-  setCachedPractice(topic, data.practice);
+  setCachedPractice(topic, difficulty, data.practice);
   logUsage({
     topic,
     kind: "practice",

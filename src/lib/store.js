@@ -75,16 +75,19 @@ export function setCachedQuiz(topic, questions) {
   write(KEYS.quizCache, cache);
 }
 
-// ---- Practice-exercise cache (topic -> generated practice JSON) ----
+// ---- Practice-exercise cache (topic+difficulty -> generated practice JSON) ----
+// Keyed by difficulty too: the combined practice notebook generates one
+// exercise per difficulty level for the same topic, and those are
+// meaningfully different exercises, not interchangeable cache hits.
 
-export function getCachedPractice(topic) {
+export function getCachedPractice(topic, difficulty) {
   const cache = read(KEYS.practiceCache, {});
-  return cache[topicId(topic)] ?? null;
+  return cache[cacheEntryKey(topic, difficulty)] ?? null;
 }
 
-export function setCachedPractice(topic, practice) {
+export function setCachedPractice(topic, difficulty, practice) {
   const cache = read(KEYS.practiceCache, {});
-  cache[topicId(topic)] = practice;
+  cache[cacheEntryKey(topic, difficulty)] = practice;
   write(KEYS.practiceCache, cache);
 }
 

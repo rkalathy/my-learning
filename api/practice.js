@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { topic, steps } = body || {};
+  const { topic, difficulty = "standard", steps } = body || {};
   if (!topic) {
     res.status(400).json({ error: "topic is required" });
     return;
@@ -32,8 +32,11 @@ export default async function handler(req, res) {
 
   // Reuses the generic quizCache LRU (keyed distinctly via "practice" kind)
   // rather than a fourth cache instance — same lifetime/eviction policy is
-  // fine for this call volume.
-  const key = cacheKey({ kind: "practice", topic: topic.trim().toLowerCase() });
+  // fine for this call volume. Keyed by difficulty too: the combined
+  // practice notebook calls this once per difficulty level, and an
+  // eli12/standard/deep exercise for the same topic are meaningfully
+  // different, not interchangeable cache hits.
+  const key = cacheKey({ kind: "practice", topic: topic.trim().toLowerCase(), difficulty });
   const cached = quizCache.get(key);
   if (cached) {
     res.status(200).json({ practice: cached, cached: true });
@@ -49,7 +52,7 @@ export default async function handler(req, res) {
       model: MODEL,
       maxTokens: PRACTICE_MAX_TOKENS,
       systemPrompt: PRACTICE_SYSTEM_PROMPT,
-      userMessage: `Topic: ${topic.trim()}${stepsContext}`,
+      userMessage: `Topic: ${topic.trim()}\nDifficulty: ${difficulty}${stepsContext}`,
     });
     quizCache.set(key, practice);
     res.status(200).json({

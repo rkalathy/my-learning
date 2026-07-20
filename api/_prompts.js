@@ -90,10 +90,17 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
   "summary": string (one encouraging sentence about what to review next)
 }`;
 
-export const PRACTICE_MAX_TOKENS = 1800;
+// Raised from 1800 after real testing: the difficulty-aware prompt below
+// asks "deep" for a production-realistic example that also handles an
+// edge case, which routinely produced more code + a longer expected_output
+// than 1800 tokens could hold, truncating mid-JSON-string even after the
+// automatic retry (same ceiling both times — see createJsonCompletion in
+// api/_util.js). Same lesson as the teach/grade max_tokens fixes: err
+// generous, since max_tokens is a ceiling, not a cost.
+export const PRACTICE_MAX_TOKENS = 3000;
 
-// Only called on-demand (the user clicks "Download practice ZIP" for a
-// code-relevant topic) — never as part of the main teaching call, which
+// Only called on-demand (the user clicks "Download Practice Notebook" for
+// a code-relevant topic) — never as part of the main teaching call, which
 // keeps every lesson generation cheap regardless of whether the practice
 // exercise is ever downloaded. Deliberately does NOT ask the model to
 // write the full beginner setup guide (Windows/Mac steps, venv commands,
@@ -102,15 +109,23 @@ export const PRACTICE_MAX_TOKENS = 1800;
 // `setup_notes` below, which is both cheaper and more reliable than
 // trusting the model to reproduce OS-specific instructions correctly
 // every time.
-export const PRACTICE_SYSTEM_PROMPT = `You write a small, runnable practice exercise for a technical topic, mirroring the numbered walkthrough a lesson already gave the learner. Keep it short and focused on ONE concept, with comments explaining each step. Use only well-known, stable libraries. Prefer Python unless the topic is inherently JavaScript/web-specific.
+//
+// Called once per difficulty level (eli12/standard/deep) and combined
+// client-side into a single practice.ipynb — see downloadPracticeZip() /
+// buildNotebook() in src/lib/export.js. Always Python: three difficulty
+// sections share one Jupyter kernel in that notebook, so a per-call
+// language choice would produce a file that can't run top-to-bottom.
+export const PRACTICE_SYSTEM_PROMPT = `You write a small, runnable Python practice exercise for a technical topic, mirroring the numbered walkthrough a lesson already gave the learner at a specific difficulty level. Keep it short and focused on ONE concept, with comments explaining each step. Use only well-known, stable libraries.
+
+Adjust complexity to the requested difficulty: eli12 = the simplest possible working example, no edge cases, heavy comments explaining even basic syntax; standard = a typical real-world-shaped example; deep = a production-realistic example that also demonstrates or handles at least one edge case.
+
+Always write Python, even if the topic reads as JavaScript/web-specific — this exercise runs as one cell in a multi-difficulty Jupyter notebook alongside a Python kernel, so it must execute in that environment.
 
 Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 {
-  "language": string ("python" or "javascript"),
-  "filename": string (e.g. "practice.py"),
-  "code": string (the full commented script — must be directly runnable as-is),
+  "language": "python" (always — see note above),
+  "code": string (the full commented script, written for a single Jupyter cell — must be directly runnable as-is),
   "requirements": string[] (pinned package versions, e.g. "numpy==1.26.4"; empty array if none needed),
-  "run_command": string (exact command to run it, e.g. "python practice.py"),
   "needs_dataset": boolean,
   "dataset_filename": string | null (e.g. "dataset.csv" — null if needs_dataset is false),
   "dataset_csv": string | null (a small CSV, header row + at most 50 data rows, fitting the exercise — null if needs_dataset is false),
