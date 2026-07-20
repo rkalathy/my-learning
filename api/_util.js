@@ -14,6 +14,24 @@ export function cacheKey(parts) {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
 
+// A retry that just repeats "return valid JSON" only helps when the
+// model wandered off-format (added commentary, wrong shape) — if the
+// failure was actually running out of max_tokens mid-string (stop_reason
+// "max_tokens"), asking for the SAME content in the SAME budget just
+// reproduces the identical truncation. Raising max_tokens ceilings has
+// needed repeated correction as real usage found richer and richer
+// topics (see the comment on MAX_TOKENS_BY_DIFFICULTY in _prompts.js) —
+// this is the structural complement: when a retry is triggered BY a
+// truncation, ask for a more concise answer instead of just repeating
+// the request, so the retry has a real chance of fitting even if this
+// particular ceiling turns out tight for this particular topic.
+function retryInstruction(userMessage, truncated) {
+  const correction = truncated
+    ? "Your previous response was cut off before completing valid JSON — it ran too long for the available length. This time, write MORE CONCISELY (shorter paragraphs, fewer words per field) while still including every required field with real content, so the complete JSON fits. Return ONLY the raw JSON object — no markdown fences, no extra text."
+    : "Your previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.";
+  return `${userMessage}\n\n${correction}`;
+}
+
 /**
  * One non-streaming Claude call that must return JSON matching a shape,
  * with the "retry once on invalid JSON" behavior PROMPT.md requires
@@ -30,16 +48,14 @@ export async function createJsonCompletion({ client, model, maxTokens, systemPro
       messages: [{ role: "user", content: message }],
     });
     const textBlock = response.content.find((b) => b.type === "text");
-    return { raw: textBlock ? textBlock.text : "", usage: response.usage };
+    return { raw: textBlock ? textBlock.text : "", usage: response.usage, truncated: response.stop_reason === "max_tokens" };
   }
 
-  let { raw, usage } = await attempt(userMessage);
+  let { raw, usage, truncated } = await attempt(userMessage);
   try {
     return { parsed: JSON.parse(extractJson(raw)), usage };
   } catch {
-    ({ raw, usage } = await attempt(
-      `${userMessage}\n\nYour previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.`,
-    ));
+    ({ raw, usage } = await attempt(retryInstruction(userMessage, truncated)));
     return { parsed: JSON.parse(extractJson(raw)), usage };
   }
 }

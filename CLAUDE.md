@@ -257,3 +257,19 @@ output tokens for zero usable result, so fixing truncation directly cuts
 that wasted spend. See the comment on `MAX_TOKENS_BY_DIFFICULTY` in
 `api/_prompts.js` for how to re-diagnose if this recurs a third time —
 don't just nudge the number from the one failing case in hand.
+
+Fourth round: another user-reported truncation ("Unterminated string")
+prompted a full stress sweep of all four JSON-emitting endpoints
+(teach ×12 topic/difficulty combos, quiz ×6, grade with realistic
+long-form answers, practice ×3 at "deep") rather than guessing which one
+was at fault. Teach and grade held up fine; quiz held up fine; practice
+was the culprit — "quantum computing" at "deep" landed at 2730/3000
+(91%), raised to `PRACTICE_MAX_TOKENS = 4000`. Also added a structural
+fix beyond raising numbers: `createJsonCompletion()` in `api/_util.js`
+and `streamLesson()`'s retry in `api/teach.js` now check the failed
+attempt's `stop_reason` — if it was `"max_tokens"`, the retry asks for a
+MORE CONCISE answer instead of repeating the identical request in the
+identical budget, which previously guaranteed the retry would truncate
+the same way. If a truncation report recurs again, check whether it's
+still a raw ceiling problem (stress-test a topic spread per endpoint,
+same as this round) before assuming the concise-retry alone will save it.

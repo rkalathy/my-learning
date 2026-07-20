@@ -250,7 +250,9 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 }
 ```
 
-`max_tokens: 3000` (raised from 1800 — the "deep" tier's edge-case requirement routinely produced more code + expected_output than 1800 could hold, truncating mid-JSON even after the automatic retry).
+`max_tokens: 4000` (raised 1800->3000->4000 — the "deep" tier's edge-case requirement routinely produced more code + expected_output than earlier ceilings could hold; a topic-spread test found "quantum computing" landing at 2730/3000, 91% of the then-ceiling, too close to trust).
+
+The retry-on-invalid-JSON behavior (`createJsonCompletion()` in `api/_util.js`, used by quiz/grade/practice) now distinguishes WHY the first attempt failed: if the response was cut off by `max_tokens` (checked via `stop_reason`), the retry asks for a more concise answer instead of repeating the same request in the same budget — the original retry just asked for "valid JSON," which reproduces an identical truncation when the real problem was length, not format. `api/teach.js`'s streaming retry got the equivalent fix.
 
 The user message sent alongside it is `Topic: {topic}\nDifficulty: {difficulty}` plus the current lesson's walkthrough steps for that difficulty, so the exercise mirrors what the learner actually read.
 

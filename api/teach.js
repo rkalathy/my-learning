@@ -24,11 +24,9 @@ function send(res, event) {
  * without trying to render invalid JSON mid-stream. The full text is only
  * parsed once the stream completes.
  */
-async function streamLesson(client, res, topic, difficulty, retry) {
+async function streamLesson(client, res, topic, difficulty, correction) {
   const maxTokens = MAX_TOKENS_BY_DIFFICULTY[difficulty] ?? MAX_TOKENS_BY_DIFFICULTY.standard;
-  const userMessage = retry
-    ? `Topic: ${topic}\nDifficulty: ${difficulty}\n\nYour previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.`
-    : `Topic: ${topic}\nDifficulty: ${difficulty}`;
+  const userMessage = correction ? `Topic: ${topic}\nDifficulty: ${difficulty}\n\n${correction}` : `Topic: ${topic}\nDifficulty: ${difficulty}`;
 
   const stream = client.messages.stream({
     model: MODEL,
@@ -49,7 +47,18 @@ async function streamLesson(client, res, topic, difficulty, retry) {
   const finalMessage = await stream.finalMessage();
   const textBlock = finalMessage.content.find((b) => b.type === "text");
   const raw = textBlock ? textBlock.text : "";
-  return { raw, usage: finalMessage.usage };
+  return { raw, usage: finalMessage.usage, truncated: finalMessage.stop_reason === "max_tokens" };
+}
+
+// A retry that just repeats "return valid JSON" only helps when the model
+// wandered off-format — if the first attempt actually ran out of
+// max_tokens mid-string, asking for the SAME content in the SAME budget
+// just reproduces the identical truncation. When that's what happened,
+// ask for a more concise answer instead.
+function retryCorrection(truncated) {
+  return truncated
+    ? "Your previous response was cut off before completing valid JSON — it ran too long for the available length. This time, write MORE CONCISELY (shorter paragraphs, fewer words per field, trim the least essential steps/confusions) while still including every required field with real content, so the complete JSON fits. Return ONLY the raw JSON object — no markdown fences, no extra text."
+    : "Your previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.";
 }
 
 export default async function handler(req, res) {
@@ -103,13 +112,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    let { raw, usage } = await streamLesson(client, res, normalizedTopic, difficulty, false);
+    let { raw, usage, truncated } = await streamLesson(client, res, normalizedTopic, difficulty, null);
     let lesson;
     try {
       lesson = JSON.parse(extractJson(raw));
     } catch {
-      // One retry, per the "robust JSON parsing" requirement.
-      ({ raw, usage } = await streamLesson(client, res, normalizedTopic, difficulty, true));
+      // One retry, per the "robust JSON parsing" requirement — the
+      // correction differs depending on whether the first attempt was
+      // cut off by max_tokens (ask for brevity) or just malformed (ask
+      // for strict JSON), see retryCorrection() above.
+      ({ raw, usage } = await streamLesson(client, res, normalizedTopic, difficulty, retryCorrection(truncated)));
       lesson = JSON.parse(extractJson(raw));
     }
 

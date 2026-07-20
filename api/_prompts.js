@@ -101,9 +101,12 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 // edge case, which routinely produced more code + a longer expected_output
 // than 1800 tokens could hold, truncating mid-JSON-string even after the
 // automatic retry (same ceiling both times — see createJsonCompletion in
-// api/_util.js). Same lesson as the teach/grade max_tokens fixes: err
-// generous, since max_tokens is a ceiling, not a cost.
-export const PRACTICE_MAX_TOKENS = 3000;
+// api/_util.js). Raised AGAIN, 3000->4000: a broader topic sweep found
+// "deep" landing at 2730/3000 (91%) on "quantum computing" — too close
+// to call safe. Same lesson as the teach max_tokens fixes: err generous,
+// since max_tokens is a ceiling, not a cost, and test a topic spread
+// before trusting a number, not just the one case in hand.
+export const PRACTICE_MAX_TOKENS = 4000;
 
 // Only called on-demand (the user clicks "Download Practice Notebook" for
 // a code-relevant topic) — never as part of the main teaching call, which
