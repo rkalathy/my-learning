@@ -4,7 +4,7 @@ import { getLibraryList, topicId } from "../lib/store.js";
 
 const COMPARE_PATTERN = /^(.+?)\s+vs\.?\s+(.+)$/i;
 
-export default function SearchBar({ autoFocus = false }) {
+export default function SearchBar({ autoFocus = false, compact = false }) {
   const [value, setValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [listening, setListening] = useState(false);
@@ -52,42 +52,57 @@ export default function SearchBar({ autoFocus = false }) {
   }
 
   return (
-    <div className="relative mx-auto w-full max-w-2xl">
+    <div className={compact ? "relative w-full max-w-xs" : "relative mx-auto w-full max-w-2xl"}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           go(value);
+          if (compact) setValue("");
         }}
-        className="flex items-center gap-2 rounded-2xl border-2 border-line bg-surface p-2 shadow-lg focus-within:border-brand-pink"
+        className={
+          compact
+            ? "flex items-center gap-1.5 rounded-full border border-line bg-bg px-3 py-1.5 focus-within:border-brand-pink"
+            : "flex items-center gap-2 rounded-2xl border-2 border-line bg-surface p-2 shadow-lg focus-within:border-brand-pink"
+        }
       >
-        <span className="pl-2 text-xl">🔍</span>
+        <span className={compact ? "text-sm text-ink-soft" : "pl-2 text-xl"}>🔍</span>
         <input
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder="Type any topic — tokenization, OAuth, normalization…"
-          className="flex-1 bg-transparent px-1 py-2 text-base text-ink outline-none placeholder:text-ink-soft/70"
+          placeholder={compact ? "Search a new topic…" : "Type any topic — tokenization, OAuth, normalization…"}
+          className={
+            compact
+              ? "w-full min-w-0 bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft/70"
+              : "flex-1 bg-transparent px-1 py-2 text-base text-ink outline-none placeholder:text-ink-soft/70"
+          }
         />
-        <button
-          type="button"
-          onClick={startVoice}
-          title="Voice input"
-          className={`rounded-full p-2.5 text-lg transition ${listening ? "animate-pulse bg-sec-confusions/20" : "hover:bg-bg"}`}
-        >
-          🎤
-        </button>
+        {!compact && (
+          <button
+            type="button"
+            onClick={startVoice}
+            title="Voice input"
+            className={`rounded-full p-2.5 text-lg transition ${listening ? "animate-pulse bg-sec-confusions/20" : "hover:bg-bg"}`}
+          >
+            🎤
+          </button>
+        )}
         <button
           type="submit"
-          className="rounded-xl bg-gradient-to-r from-brand-violet via-brand-pink to-brand-orange px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+          className={
+            compact
+              ? "rounded-full bg-gradient-to-r from-brand-violet via-brand-pink to-brand-orange px-3 py-1 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+              : "rounded-xl bg-gradient-to-r from-brand-violet via-brand-pink to-brand-orange px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+          }
         >
-          Teach Me
+          {compact ? "Go" : "Teach Me"}
         </button>
       </form>
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+        <div className="absolute z-20 mt-2 w-full min-w-64 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
           <p className="px-4 pt-3 pb-1 text-[11px] font-bold tracking-wide text-ink-soft uppercase">
             {value.trim() ? "Matching topics you've learned" : "Continue learning"}
           </p>
@@ -102,9 +117,11 @@ export default function SearchBar({ autoFocus = false }) {
           ))}
         </div>
       )}
-      <p className="mt-2 text-center text-xs text-ink-soft">
-        Tip: type <span className="font-semibold">"tokenization vs embedding"</span> for a side-by-side comparison.
-      </p>
+      {!compact && (
+        <p className="mt-2 text-center text-xs text-ink-soft">
+          Tip: type <span className="font-semibold">"tokenization vs embedding"</span> for a side-by-side comparison.
+        </p>
+      )}
     </div>
   );
 }

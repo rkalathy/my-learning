@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { computeStreak } from "../lib/stats.js";
 import { todayISO } from "../lib/srs.js";
+import SearchBar from "./SearchBar.jsx";
 
 const NAV = [
   { to: "/", label: "Home" },
@@ -14,7 +15,7 @@ export default function Header({ theme, onToggleTheme }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-5 py-3">
-        <NavLink to="/" className="font-heading text-lg font-extrabold text-ink">
+        <NavLink to="/" className="shrink-0 font-heading text-lg font-extrabold text-ink">
           My Learning{" "}
           <span className="bg-gradient-to-r from-brand-violet via-brand-pink to-brand-orange bg-clip-text text-transparent">
             ✦
@@ -28,7 +29,7 @@ export default function Header({ theme, onToggleTheme }) {
               to={n.to}
               end={n.to === "/"}
               className={({ isActive }) =>
-                `rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                `rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition ${
                   isActive ? "bg-brand-pink/12 text-brand-pink" : "text-ink-soft hover:text-ink"
                 }`
               }
@@ -38,7 +39,14 @@ export default function Header({ theme, onToggleTheme }) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        {/* Always-available search — so a topic that isn't in "Related
+            Topics" (or any page other than Home) is never more than one
+            search away. */}
+        <div className="hidden min-w-0 flex-1 justify-end sm:flex">
+          <SearchBar compact />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
           {streak > 0 && (
             <span className="flex items-center gap-1 rounded-full bg-sec-steps/12 px-2.5 py-1 text-xs font-bold text-sec-steps">
               <span className="animate-flame">🔥</span> {streak}
@@ -53,22 +61,27 @@ export default function Header({ theme, onToggleTheme }) {
           </button>
         </div>
       </div>
-      <nav className="flex items-center gap-1 overflow-x-auto border-t border-line px-5 py-1.5 sm:hidden">
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.to === "/"}
-            className={({ isActive }) =>
-              `rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition ${
-                isActive ? "bg-brand-pink/12 text-brand-pink" : "text-ink-soft"
-              }`
-            }
-          >
-            {n.label}
-          </NavLink>
-        ))}
-      </nav>
+      <div className="flex items-center gap-2 border-t border-line px-5 py-1.5 sm:hidden">
+        <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.to === "/"}
+              className={({ isActive }) =>
+                `rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition ${
+                  isActive ? "bg-brand-pink/12 text-brand-pink" : "text-ink-soft"
+                }`
+              }
+            >
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+      <div className="border-t border-line px-5 py-2 sm:hidden">
+        <SearchBar compact />
+      </div>
     </header>
   );
 }
