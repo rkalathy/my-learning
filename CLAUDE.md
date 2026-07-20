@@ -243,3 +243,17 @@ practice-generation notes above; `PRACTICE_MAX_TOKENS` raised 1800->3000
 after the new difficulty-aware prompt's "deep" tier (which explicitly
 asks for edge-case handling) started truncating mid-JSON at the old
 ceiling — same failure class as the teach/grade fixes above.
+
+Third round: `MAX_TOKENS_BY_DIFFICULTY` raised AGAIN — 1600/2400/3600 ->
+2600/3400/4400 — after a user-reported truncation on `/api/teach` led to
+testing a spread of verbose real topics (transformers, vector databases,
+OAuth2, CAP theorem, microservices, distributed consensus) across all
+three tiers: every tier truncated on at least one topic, including
+eli12, which had been assumed safer since it's "simpler" — a
+conceptually rich topic still needs a full 9-section shape regardless of
+reading level. This also explains part of the "token usage feels high"
+reports: a truncated attempt AND its automatic retry both burn full
+output tokens for zero usable result, so fixing truncation directly cuts
+that wasted spend. See the comment on `MAX_TOKENS_BY_DIFFICULTY` in
+`api/_prompts.js` for how to re-diagnose if this recurs a third time —
+don't just nudge the number from the one failing case in hand.

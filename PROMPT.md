@@ -187,7 +187,7 @@ Called with prompt caching:
 system: [{ type: "text", text: TEACHING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }]
 ```
 
-Model: `claude-sonnet-4-6`. `max_tokens` per difficulty: eli12 = 1600, standard = 2400, deep = 3600 — raised from the original spec's ~800/1500/2500 estimates after real testing showed the full 9-section JSON shape truncating mid-response at those lower ceilings (both the first attempt and the automatic retry, since both share the same cap). `max_tokens` is a ceiling, not a cost — Anthropic bills actual output tokens produced — so err generous here rather than re-tuning tightly.
+Model: `claude-sonnet-4-6`. `max_tokens` per difficulty: eli12 = 2600, standard = 3400, deep = 4400. This is the SECOND increase — the original spec's ~800/1500/2500 estimates were raised once to 1600/2400/3600, which still truncated in later real-usage reports (verbose topics like "transformers"/"vector databases" hit the ceiling on every tier, including eli12 — a conceptually rich topic needs a full set of steps/confusions/interview questions regardless of reading level). If this recurs again, don't nudge the number from the one failing case in hand — test a spread of verbose real topics per tier and raise with real margin above the worst observed `output_tokens`. `max_tokens` is a ceiling, not a cost — Anthropic bills actual output tokens produced — so err generous here rather than re-tuning tightly.
 
 ---
 

@@ -8,21 +8,27 @@
 export const MODEL = "claude-sonnet-4-6";
 
 // Token ceilings per difficulty — a cap, not a target (Anthropic bills by
-// actual output tokens produced, not this ceiling). The full 9-section
+// actual output tokens produced, not this ceiling — a higher number here
+// costs nothing unless the model actually needs it). The full 9-section
 // JSON shape (tags, one_line, analogy, why, 4-6 steps, an action code
 // block, 2-3 confusions, 3 interview Q&As + a curveball, memory_hook, and
 // 2+3+2-3 related-topic entries each with a "why") is a lot of structured
-// content — the original spec's suggested ~800/1500/2500 estimates proved
-// too tight in practice and truncated mid-JSON (caught during real testing:
-// the response got cut off at the max_tokens boundary, both the original
-// attempt AND the one automatic retry, since both use the same ceiling —
-// see api/teach.js). Raised with real headroom; if you touch the lesson
-// schema and add fields, re-verify these aren't tight again rather than
-// assuming the old margin still holds.
+// content, and how much of it a topic needs varies a lot — NOT just by
+// difficulty. Two rounds of real-usage truncation reports forced two
+// rounds of increases here (900/1600/2600 -> 1600/2400/3600 -> current):
+// live testing on verbose topics (transformers, vector databases,
+// microservices, OAuth2, CAP theorem) showed EVERY tier truncating —
+// even eli12, since a conceptually rich topic still needs a full set of
+// steps/confusions/interview questions regardless of reading level. Do
+// not treat 1600/2400/3600 as "the real ceiling was found" — if a report
+// like this recurs, don't just nudge the number, re-run a spread of
+// verbose real topics per tier (see the git history for this file) and
+// raise with real margin above the worst observed output_tokens, not
+// just past the one failing case in hand.
 export const MAX_TOKENS_BY_DIFFICULTY = {
-  eli12: 1600,
-  standard: 2400,
-  deep: 3600,
+  eli12: 2600,
+  standard: 3400,
+  deep: 4400,
 };
 
 // Grading 5 questions each need a score, a "missed" explanation, and a
