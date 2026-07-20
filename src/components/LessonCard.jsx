@@ -23,7 +23,7 @@ function ActionBlock({ lesson }) {
         <pre>
           <code>{lesson.action}</code>
         </pre>
-        <CopyButton text={lesson.action} className="absolute top-2 right-2 bg-ink/80 text-white hover:bg-ink" />
+        <CopyButton text={lesson.action} variant="dark" className="absolute top-2 right-2" />
       </div>
     );
   }
@@ -86,7 +86,7 @@ export default function LessonCard({ lesson, difficulty, onDifficultyChange, onR
 
   return (
     <div className="space-y-5">
-      <div className="animate-fade-slide-up rounded-3xl bg-gradient-to-br from-brand-violet via-brand-pink to-brand-orange p-6 text-white shadow-lg">
+      <div className="animate-fade-slide-up relative z-20 rounded-3xl bg-gradient-to-br from-brand-violet via-brand-pink to-brand-orange p-6 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-heading text-2xl font-extrabold sm:text-3xl">{lesson.topic}</h1>
@@ -133,7 +133,7 @@ export default function LessonCard({ lesson, difficulty, onDifficultyChange, onR
           >
             {regenerating ? "Regenerating…" : "↻ Regenerate"}
           </button>
-          <DownloadMenu lesson={lesson} />
+          <DownloadMenu lesson={lesson} difficulty={difficulty} />
         </div>
       </div>
 
