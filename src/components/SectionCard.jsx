@@ -9,8 +9,11 @@ export default function SectionCard({ section, index, children, defaultCollapsed
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.35 }}
-      className="rounded-2xl border-2 bg-surface p-5 shadow-sm"
-      style={{ borderColor: `color-mix(in srgb, ${section.color} 35%, transparent)` }}
+      className="rounded-2xl border-2 p-5 shadow-sm backdrop-blur-sm"
+      style={{
+        borderColor: `color-mix(in srgb, ${section.color} 35%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${section.color} 6%, var(--color-surface))`,
+      }}
     >
       <button
         onClick={() => setCollapsed((c) => !c)}

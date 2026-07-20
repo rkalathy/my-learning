@@ -54,10 +54,25 @@ html {
 
 body {
   margin: 0;
-  background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-body);
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* Soft, fixed color-wash blobs behind everything — flat --color-bg
+     alone read as plain/gray; this keeps the vibrant hero/section-card
+     palette from feeling isolated against the page background. */
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 8% -10%, color-mix(in srgb, var(--color-brand-violet) 16%, transparent), transparent),
+    radial-gradient(ellipse 800px 500px at 100% 0%, color-mix(in srgb, var(--color-brand-pink) 14%, transparent), transparent),
+    radial-gradient(ellipse 900px 600px at 50% 100%, color-mix(in srgb, var(--color-brand-orange) 10%, transparent), transparent);
+  background-repeat: no-repeat;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(ellipse 900px 500px at 8% -10%, color-mix(in srgb, var(--color-brand-violet) 22%, transparent), transparent),
+    radial-gradient(ellipse 800px 500px at 100% 0%, color-mix(in srgb, var(--color-brand-pink) 18%, transparent), transparent),
+    radial-gradient(ellipse 900px 600px at 50% 100%, color-mix(in srgb, var(--color-brand-orange) 14%, transparent), transparent);
 }
 
 #root {
