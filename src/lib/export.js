@@ -1,42 +1,9 @@
 import { SECTIONS } from "./sections.js";
 
-// ---- Markdown ----
-
-export function lessonToMarkdown(lesson) {
-  const lines = [`# ${lesson.topic}`, "", `_Tags: ${(lesson.tags ?? []).join(", ")}_`, ""];
-  lines.push("## In One Line", lesson.one_line, "");
-  lines.push("## The Analogy 🧠", lesson.analogy, "");
-  lines.push("## Why It Exists", lesson.why, "");
-  lines.push("## Step-by-Step: How It Actually Works");
-  lesson.steps.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
-  lines.push("");
-  lines.push("## See It In Action");
-  if (lesson.action_lang) lines.push("```" + lesson.action_lang, lesson.action, "```");
-  else lines.push(lesson.action);
-  lines.push("");
-  lines.push("## Common Confusions ⚠️");
-  lesson.confusions.forEach((c) => lines.push(`- **${c.a}:** ${c.b}`));
-  lines.push("");
-  lines.push("## Interview Corner 🎯");
-  lesson.interview_qa.forEach((qa, i) => lines.push(`**Q${i + 1}. ${qa.q}**`, "", qa.a, ""));
-  if (lesson.interview_curveball) {
-    lines.push(`**🌶️ Curveball: ${lesson.interview_curveball.q}**`, "", lesson.interview_curveball.a, "");
-  }
-  lines.push("## Memory Hook 📌", lesson.memory_hook, "");
-  lines.push("## Related Topics & Learning Path 🔗");
-  lines.push("**Learn Before:**");
-  (lesson.related_before ?? []).forEach((r) => lines.push(`- ${r.topic} — ${r.why}`));
-  lines.push("", "**Learn Next:**");
-  (lesson.related_next ?? []).forEach((r) => lines.push(`- ${r.topic} — ${r.why}`));
-  lines.push("", "**Often Paired With:**");
-  (lesson.related_paired ?? []).forEach((r) => lines.push(`- ${r.topic} — ${r.why}`));
-  return lines.join("\n");
-}
-
-export function lessonToJSON(lesson) {
-  return JSON.stringify(lesson, null, 2);
-}
-
+// Per-lesson Markdown/JSON export was removed (PDF/Word cover the same
+// content, better presented) — the library-wide JSON backup on the
+// Library page is a different feature and still uses downloadTextFile()
+// below, so that helper stays.
 export function downloadTextFile(filename, content, mime = "text/plain") {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -49,14 +16,6 @@ export function downloadTextFile(filename, content, mime = "text/plain") {
 
 function slugify(topic) {
   return topic.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
-export function downloadMarkdown(lesson) {
-  downloadTextFile(`${slugify(lesson.topic)}.md`, lessonToMarkdown(lesson), "text/markdown");
-}
-
-export function downloadJSON(lesson) {
-  downloadTextFile(`${slugify(lesson.topic)}.json`, lessonToJSON(lesson), "application/json");
 }
 
 // ---- PDF (jsPDF) ----
@@ -340,8 +299,8 @@ export async function downloadLibraryDocx(lessons) {
 // this still goes through the normal client/server cache, never a
 // dedicated extra endpoint.
 
-const DIFFICULTY_LABELS = { eli12: "Explain Like I'm 12", standard: "Standard", deep: "Deep Dive" };
-const DIFFICULTY_ORDER = ["eli12", "standard", "deep"];
+export const DIFFICULTY_LABELS = { eli12: "Explain Like I'm 12", standard: "Standard", deep: "Deep Dive" };
+export const DIFFICULTY_ORDER = ["eli12", "standard", "deep"];
 
 export async function downloadAllDifficultiesPdf(topic, lessonsByDifficulty) {
   const { jsPDF } = await import("jspdf");
@@ -383,115 +342,134 @@ export async function downloadAllDifficultiesDocx(topic, lessonsByDifficulty) {
   URL.revokeObjectURL(url);
 }
 
-// ---- Practice ZIP (topic-practice.zip: script + requirements.txt + dataset + SETUP_GUIDE.pdf) ----
+// ---- Interview Prep — combined Interview Corner across all 3 difficulties ----
+// A focused companion to "All 3 Difficulties": just the Q&As + curveball
+// per level, for someone cramming interview prep rather than re-reading
+// full lessons. Reuses the same already-fetched lessonsByDifficulty map.
 
-// The beginner setup guide is templated here, NOT written by the LLM —
-// the OS-specific venv/activate/troubleshooting steps are static
-// boilerplate that doesn't vary per topic, so generating them fresh every
-// time would just be wasted tokens (and a reliability risk: an LLM asked
-// to reproduce Windows vs. Mac/Linux commands correctly every single time
-// is a worse bet than a fixed template). Only the topic-specific pieces —
-// filename, run command, expected output, extra setup notes — come from
-// the practice-generation API call.
-function buildSetupGuide(topic, practice) {
-  const isPython = practice.language !== "javascript";
-  const runtimeName = isPython ? "Python 3.10+" : "Node.js 18+";
-  const runtimeCheck = isPython ? "python --version" : "node --version";
-  const runtimeLink = isPython ? "https://www.python.org/downloads/" : "https://nodejs.org/";
+async function buildInterviewPrepPdf(pdf, topic, lessonsByDifficulty) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const maxWidth = pageWidth - margin * 2;
+  let y = 56;
 
-  const lines = [
-    `# Setup & How to Run — ${topic}`,
-    "",
-    `This is a generated practice exercise for **${topic}**. Follow these steps from a clean environment — they work on both Windows and Mac/Linux (OS-specific commands are marked).`,
-    "",
-    "## 1. Prerequisites",
-    "",
-    `- Install **${runtimeName}**: ${runtimeLink}`,
-    `- Verify it installed: open a terminal and run \`${runtimeCheck}\` — you should see a version number, not "command not found".`,
-    "- (Recommended, not required) [VS Code](https://code.visualstudio.com/) for editing/running the file.",
-    practice.setup_notes ? `- **Extra setup for this exercise:** ${practice.setup_notes}` : "",
-    "",
-  ];
+  const ensureSpace = (needed) => {
+    if (y + needed > pageHeight - margin) {
+      pdf.addPage();
+      y = margin;
+    }
+  };
+  const writeParagraph = (text, { fontSize = 10.5, style = "normal", color = [30, 27, 46], gapAfter = 5 } = {}) => {
+    pdf.setFont("helvetica", style);
+    pdf.setFontSize(fontSize);
+    pdf.setTextColor(...color);
+    const lines = pdf.splitTextToSize(sanitizeForPdf(text), maxWidth);
+    ensureSpace(lines.length * (fontSize * 0.5) + gapAfter);
+    pdf.text(lines, margin, y);
+    y += lines.length * (fontSize * 0.5) + gapAfter;
+  };
+  const writeDifficultyHeading = (label) => {
+    ensureSpace(16);
+    pdf.setFillColor(236, 72, 153);
+    pdf.rect(margin, y - 6, maxWidth, 11, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(sanitizeForPdf(label), margin + 3, y + 2);
+    y += 13;
+  };
 
-  if (isPython) {
-    lines.push(
-      "## 2. Create a virtual environment",
-      "",
-      "```bash",
-      "python -m venv venv",
-      "```",
-      "",
-      "Activate it:",
-      "",
-      "- **Windows (PowerShell):** `venv\\Scripts\\Activate.ps1`",
-      "- **Mac/Linux:** `source venv/bin/activate`",
-      "",
-      "Your terminal prompt should now start with `(venv)`.",
-      "",
-      "## 3. Install dependencies",
-      "",
-      "```bash",
-      "pip install -r requirements.txt",
-      "```",
-      "",
-      practice.requirements?.length
-        ? `This installs: ${practice.requirements.join(", ")}.`
-        : "This exercise has no external dependencies — requirements.txt is empty and this step is a no-op, but running it is still safe.",
-      ""
-    );
-  } else {
-    lines.push(
-      "## 2. Install dependencies",
-      "",
-      practice.requirements?.length
-        ? "```bash\nnpm install " + practice.requirements.join(" ") + "\n```"
-        : "This exercise has no external dependencies — nothing to install.",
-      ""
-    );
+  pdf.setFillColor(139, 92, 246);
+  pdf.rect(0, 0, pageWidth, 45, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(20);
+  pdf.text(`Interview Prep`, margin, 24);
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(sanitizeForPdf(topic), margin, 34);
+
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const lesson = lessonsByDifficulty[difficulty];
+    if (!lesson) continue;
+    writeDifficultyHeading(DIFFICULTY_LABELS[difficulty]);
+    lesson.interview_qa.forEach((qa, i) => {
+      writeParagraph(`Q${i + 1}. ${qa.q}`, { style: "bold", gapAfter: 2 });
+      writeParagraph(qa.a, { gapAfter: 5 });
+    });
+    if (lesson.interview_curveball) {
+      writeParagraph(`Curveball: ${lesson.interview_curveball.q}`, { style: "bold", gapAfter: 2 });
+      writeParagraph(lesson.interview_curveball.a, { gapAfter: 5 });
+    }
   }
-
-  lines.push(
-    `## ${isPython ? "4" : "3"}. Run it`,
-    "",
-    "```bash",
-    practice.run_command,
-    "```",
-    "",
-    `${isPython ? "5" : "4"}. Expected output`,
-    "",
-    "You should see exactly this (small formatting differences like extra whitespace are fine):",
-    "",
-    "```",
-    practice.expected_output,
-    "```",
-    "",
-    `## ${isPython ? "6" : "5"}. Troubleshooting`,
-    "",
-    isPython
-      ? [
-          `- **"ModuleNotFoundError" / "command not found"** — your virtual environment isn't activated (step 2), or step 3 wasn't run. Re-activate and re-run \`pip install -r requirements.txt\`.`,
-          `- **"python: command not found" or a very old version prints** — some systems use \`python3\` instead of \`python\`. Try \`python3 -m venv venv\` and \`python3 ${practice.filename}\`.`,
-          `- **A file-not-found error mentioning "${practice.dataset_filename ?? "a data file"}"** — run the script from inside the unzipped folder (the same directory as \`${practice.filename}\`), not from somewhere else.`,
-        ].join("\n")
-      : [
-          `- **"command not found: node"** — Node.js isn't installed or isn't on your PATH; reinstall from the link above and restart your terminal.`,
-          `- **"Cannot find module ..."** — dependencies weren't installed; re-run the npm install command from step 2.`,
-          `- **A file-not-found error mentioning "${practice.dataset_filename ?? "a data file"}"** — run the script from inside the unzipped folder, not from somewhere else.`,
-        ].join("\n"),
-    ""
-  );
-
-  return lines.filter((l) => l !== "").join("\n").replace(/\n\n\n+/g, "\n\n");
 }
 
-// Same content as buildSetupGuide() above, rendered as a real PDF instead
-// of a raw .md file — a downloaded ZIP opened by a non-technical learner
-// shouldn't require knowing what to do with "##" and "```" characters.
-async function buildSetupGuidePdf(topic, practice) {
-  const isPython = practice.language !== "javascript";
-  const runtimeName = isPython ? "Python 3.10+" : "Node.js 18+";
-  const runtimeCheck = isPython ? "python --version" : "node --version";
-  const runtimeLink = isPython ? "https://www.python.org/downloads/" : "https://nodejs.org/";
+export async function downloadInterviewPrepPdf(topic, lessonsByDifficulty) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  await buildInterviewPrepPdf(pdf, topic, lessonsByDifficulty);
+  pdf.save(`${slugify(topic)}-interview-prep.pdf`);
+}
+
+export async function downloadInterviewPrepDocx(topic, lessonsByDifficulty) {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
+  const children = [
+    new Paragraph({ text: `Interview Prep — ${topic}`, heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: "Interview Corner across all three difficulty levels.", spacing: { after: 300 } }),
+  ];
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const lesson = lessonsByDifficulty[difficulty];
+    if (!lesson) continue;
+    children.push(new Paragraph({ text: DIFFICULTY_LABELS[difficulty], heading: HeadingLevel.HEADING_1 }));
+    lesson.interview_qa.forEach((qa, i) => {
+      children.push(new Paragraph({ children: [new TextRun({ text: `Q${i + 1}. ${qa.q}`, bold: true })] }));
+      children.push(new Paragraph({ text: qa.a, spacing: { after: 150 } }));
+    });
+    if (lesson.interview_curveball) {
+      children.push(new Paragraph({ children: [new TextRun({ text: `Curveball: ${lesson.interview_curveball.q}`, bold: true, italics: true })] }));
+      children.push(new Paragraph({ text: lesson.interview_curveball.a, spacing: { after: 150 } }));
+    }
+  }
+  const doc = new Document({ sections: [{ children }] });
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${slugify(topic)}-interview-prep.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Practice ZIP (topic-practice.zip: script + requirements.txt + dataset + SETUP_GUIDE.pdf) ----
+
+// De-dupes requirements across the 3 difficulty levels by package name
+// (text before the first version operator), keeping the first pinned
+// version seen — the notebook runs all 3 exercises in ONE kernel/venv, so
+// there's exactly one requirements.txt, not one per difficulty.
+function mergeRequirements(practicesByDifficulty) {
+  const seen = new Map();
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const practice = practicesByDifficulty[difficulty];
+    for (const req of practice?.requirements ?? []) {
+      const name = req.split(/[=<>~!]/)[0].trim().toLowerCase();
+      if (!seen.has(name)) seen.set(name, req);
+    }
+  }
+  return [...seen.values()];
+}
+
+// The beginner setup guide is templated here, NOT written by the LLM —
+// the venv/Jupyter/troubleshooting steps are static boilerplate that
+// doesn't vary per topic, so generating them fresh every time would just
+// be wasted tokens (and a reliability risk: an LLM asked to reproduce
+// these instructions correctly every single time is a worse bet than a
+// fixed template). Per-difficulty specifics (expected output, setup
+// notes) live in practice.ipynb's own markdown cells instead of being
+// duplicated here — this guide only covers getting the notebook running.
+async function buildSetupGuidePdf(topic, practicesByDifficulty) {
+  const requirements = mergeRequirements(practicesByDifficulty);
+  const setupNotes = DIFFICULTY_ORDER.map((d) => practicesByDifficulty[d]?.setup_notes).filter(Boolean);
 
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
@@ -543,63 +521,118 @@ async function buildSetupGuidePdf(topic, practice) {
   pdf.text(`Setup & How to Run`, margin, 24);
   pdf.setFontSize(11);
   pdf.setFont("helvetica", "normal");
-  pdf.text(sanitizeForPdf(topic), margin, 34);
+  pdf.text(sanitizeForPdf(`${topic} — practice.ipynb (3 difficulty levels)`), margin, 34);
 
   heading("1. Prerequisites");
-  bullet(`Install ${runtimeName}: ${runtimeLink}`);
-  bullet(`Verify it installed — run "${runtimeCheck}" in a terminal; you should see a version number.`);
-  if (practice.setup_notes) bullet(`Extra setup for this exercise: ${practice.setup_notes}`);
+  bullet("Install Python 3.10+: https://www.python.org/downloads/");
+  bullet('Verify it installed — run "python --version" in a terminal; you should see a version number.');
+  setupNotes.forEach((note) => bullet(`Extra setup: ${note}`));
 
-  if (isPython) {
-    heading("2. Create a virtual environment");
-    paragraph("python -m venv venv", { code: true });
-    paragraph("Activate it — Windows (PowerShell): venv\\Scripts\\Activate.ps1   |   Mac/Linux: source venv/bin/activate");
-    heading("3. Install dependencies");
-    paragraph("pip install -r requirements.txt", { code: true });
-    paragraph(
-      practice.requirements?.length
-        ? `This installs: ${practice.requirements.join(", ")}.`
-        : "This exercise has no external dependencies — this step is a no-op but safe to run.",
-    );
-  } else {
-    heading("2. Install dependencies");
-    if (practice.requirements?.length) paragraph(`npm install ${practice.requirements.join(" ")}`, { code: true });
-    else paragraph("This exercise has no external dependencies — nothing to install.");
-  }
+  heading("2. Create a virtual environment");
+  paragraph("python -m venv venv", { code: true });
+  paragraph("Activate it — Windows (PowerShell): venv\\Scripts\\Activate.ps1   |   Mac/Linux: source venv/bin/activate");
 
-  heading(`${isPython ? "4" : "3"}. Run it`);
-  paragraph(practice.run_command, { code: true });
+  heading("3. Install Jupyter and dependencies");
+  paragraph(`pip install jupyter${requirements.length ? "\npip install -r requirements.txt" : ""}`, { code: true });
+  paragraph(
+    requirements.length
+      ? `requirements.txt installs: ${requirements.join(", ")}.`
+      : "None of the three exercises need external packages — requirements.txt is empty, nothing else to install.",
+  );
 
-  heading(`${isPython ? "5" : "4"}. Expected output`);
-  paragraph("You should see exactly this (minor whitespace differences are fine):");
-  paragraph(practice.expected_output, { code: true });
+  heading("4. Open and run the notebook");
+  paragraph("jupyter notebook practice.ipynb", { code: true });
+  paragraph(
+    "This opens practice.ipynb in your browser. Use \"Run All\" (or Shift+Enter through each cell, top to bottom). The notebook has one section per difficulty level — Explain Like I'm 12, Standard, Deep Dive — each with a markdown cell right above its code cell showing the exact expected output, so you can confirm it worked.",
+  );
+  paragraph("Prefer VS Code? Open practice.ipynb directly — its built-in Jupyter support runs the same way (pick this venv as the kernel first).");
 
-  heading(`${isPython ? "6" : "5"}. Troubleshooting`);
-  if (isPython) {
-    bullet('"ModuleNotFoundError" / "command not found" — your virtual environment isn\'t activated, or step 3 wasn\'t run.');
-    bullet('"python: command not found" — some systems use "python3" instead; try that for every command above.');
-    bullet(`A file-not-found error mentioning "${practice.dataset_filename ?? "a data file"}" — run the script from inside the unzipped folder.`);
-  } else {
-    bullet('"command not found: node" — Node.js isn\'t installed or isn\'t on your PATH.');
-    bullet('"Cannot find module ..." — dependencies weren\'t installed; re-run the npm install command.');
-    bullet(`A file-not-found error mentioning "${practice.dataset_filename ?? "a data file"}" — run the script from inside the unzipped folder.`);
-  }
+  heading("5. Troubleshooting");
+  bullet('"jupyter: command not found" — your virtual environment isn\'t activated, or step 3 wasn\'t run.');
+  bullet("An import/module error inside a cell — re-run step 3 to confirm requirements.txt installed inside THIS venv, not a different Python install.");
+  bullet("A file-not-found error mentioning a dataset CSV — launch Jupyter from inside the unzipped folder (the same directory as practice.ipynb), not from somewhere else.");
 
   return pdf.output("arraybuffer");
 }
 
-export async function downloadPracticeZip(topic, practice) {
+function nbLines(text) {
+  const lines = String(text ?? "").split("\n");
+  return lines.map((line, i) => (i < lines.length - 1 ? line + "\n" : line));
+}
+
+function nbMarkdownCell(text) {
+  return { cell_type: "markdown", metadata: {}, source: nbLines(text) };
+}
+
+function nbCodeCell(code) {
+  return { cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: nbLines(code) };
+}
+
+// One .ipynb with 3 sections (eli12/standard/deep), each a markdown intro
+// (what it demonstrates + expected output) followed by its code cell —
+// meant to be opened once and run top to bottom in a single Python kernel.
+function buildNotebook(topic, codeByDifficulty) {
+  const cells = [
+    nbMarkdownCell(
+      `# Practice: ${topic}\n\nOne exercise per difficulty level. Run the cells top to bottom — each section is self-contained.`,
+    ),
+  ];
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const entry = codeByDifficulty[difficulty];
+    if (!entry) continue;
+    const { practice, code } = entry;
+    const introLines = [
+      `## ${DIFFICULTY_LABELS[difficulty]}`,
+      "",
+      "**Expected output:**",
+      "```",
+      practice.expected_output ?? "",
+      "```",
+    ];
+    cells.push(nbMarkdownCell(introLines.join("\n")));
+    cells.push(nbCodeCell(code));
+  }
+  return {
+    cells,
+    metadata: {
+      kernelspec: { display_name: "Python 3", language: "python", name: "python3" },
+      language_info: { name: "python", pygments_lexer: "ipython3" },
+    },
+    nbformat: 4,
+    nbformat_minor: 5,
+  };
+}
+
+/**
+ * practicesByDifficulty: { eli12?, standard?, deep? } each a practice
+ * object from api/practice.js (called once per difficulty — see
+ * DownloadMenu's handleCombinedPractice). Produces one ZIP:
+ * practice.ipynb (all 3 exercises), requirements.txt (merged), any
+ * dataset CSVs (namespaced per difficulty to avoid filename collisions),
+ * and SETUP_GUIDE.pdf.
+ */
+export async function downloadPracticeZip(topic, practicesByDifficulty) {
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
-  zip.file(practice.filename, practice.code);
-  if (practice.language !== "javascript") {
-    zip.file("requirements.txt", (practice.requirements ?? []).join("\n") + (practice.requirements?.length ? "\n" : ""));
+  const codeByDifficulty = {};
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const practice = practicesByDifficulty[difficulty];
+    if (!practice) continue;
+    let code = practice.code;
+    if (practice.needs_dataset && practice.dataset_csv && practice.dataset_filename) {
+      const namespacedFilename = `${difficulty}_${practice.dataset_filename}`;
+      code = code.split(practice.dataset_filename).join(namespacedFilename);
+      zip.file(namespacedFilename, practice.dataset_csv);
+    }
+    codeByDifficulty[difficulty] = { practice, code };
   }
-  if (practice.needs_dataset && practice.dataset_csv) {
-    zip.file(practice.dataset_filename ?? "dataset.csv", practice.dataset_csv);
-  }
-  zip.file("SETUP_GUIDE.pdf", await buildSetupGuidePdf(topic, practice));
+
+  zip.file("practice.ipynb", JSON.stringify(buildNotebook(topic, codeByDifficulty), null, 1));
+
+  const requirements = mergeRequirements(practicesByDifficulty);
+  zip.file("requirements.txt", requirements.length ? requirements.join("\n") + "\n" : "");
+  zip.file("SETUP_GUIDE.pdf", await buildSetupGuidePdf(topic, practicesByDifficulty));
 
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
@@ -610,6 +643,5 @@ export async function downloadPracticeZip(topic, practice) {
   URL.revokeObjectURL(url);
 }
 
-export { buildSetupGuide };
 export { slugify };
 export { SECTIONS };
