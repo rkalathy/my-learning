@@ -1,4 +1,4 @@
-import { getCachedLesson, setCachedLesson, logUsage } from "./store.js";
+import { getCachedLesson, setCachedLesson, getCachedQuiz, setCachedQuiz, getCachedPractice, setCachedPractice, logUsage } from "./store.js";
 
 /**
  * Fetches a lesson for a topic+difficulty. Checks the LOCAL cache first —
@@ -71,6 +71,12 @@ export async function teachTopic(topic, difficulty, { mode = "generate", onProgr
 }
 
 export async function generateQuiz(topic) {
+  const cached = getCachedQuiz(topic);
+  if (cached) {
+    logUsage({ topic, kind: "quiz_generate", cached: true, source: "client_cache", inputTokens: 0, outputTokens: 0 });
+    return cached;
+  }
+
   const res = await fetch("/api/quiz", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -81,6 +87,7 @@ export async function generateQuiz(topic) {
     throw new Error(err?.error ?? "Failed to generate quiz");
   }
   const data = await res.json();
+  setCachedQuiz(topic, data.questions);
   logUsage({
     topic,
     kind: "quiz_generate",
@@ -113,6 +120,12 @@ export async function gradeQuiz(topic, answers) {
 
 /** On-demand practice-exercise generation — only called when the user clicks "Download practice ZIP". */
 export async function generatePractice(topic, steps) {
+  const cached = getCachedPractice(topic);
+  if (cached) {
+    logUsage({ topic, kind: "practice", cached: true, source: "client_cache", inputTokens: 0, outputTokens: 0 });
+    return cached;
+  }
+
   const res = await fetch("/api/practice", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -123,6 +136,7 @@ export async function generatePractice(topic, steps) {
     throw new Error(err?.error ?? "Failed to generate practice exercise");
   }
   const data = await res.json();
+  setCachedPractice(topic, data.practice);
   logUsage({
     topic,
     kind: "practice",

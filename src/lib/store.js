@@ -10,6 +10,8 @@ import { createSchedule } from "./srs.js";
 const KEYS = {
   library: "ml_v1_library", // { [topicId]: { topic, tags, isCodeRelevant, currentDifficulty, learnedDate, lastViewedDate } }
   cache: "ml_v1_cache", // { [topicId::difficulty]: lessonJSON } — "never regenerate what we already have"
+  quizCache: "ml_v1_quiz_cache", // { [topicId]: questions[] } — same "never regenerate" rule for quiz questions
+  practiceCache: "ml_v1_practice_cache", // { [topicId]: practiceJSON }
   schedules: "ml_v1_schedules", // { [topicId]: srsSchedule }
   quizResults: "ml_v1_quiz_results", // [{ topicId, topic, date, overallScore, results }]
   journey: "ml_v1_journey", // [{ topicId, topic, timestamp }] — most recent last
@@ -54,6 +56,36 @@ export function setCachedLesson(topic, difficulty, lesson) {
   const cache = read(KEYS.cache, {});
   cache[cacheEntryKey(topic, difficulty)] = lesson;
   write(KEYS.cache, cache);
+}
+
+// ---- Quiz question cache (topic -> generated questions[]) ----
+// Quiz answers are always graded fresh (they're different every attempt),
+// but the QUESTIONS themselves are deterministic-enough per topic that
+// regenerating them on every "Quiz Me" click was pure wasted tokens — the
+// server-side LRU alone doesn't cover this reliably across cold starts.
+
+export function getCachedQuiz(topic) {
+  const cache = read(KEYS.quizCache, {});
+  return cache[topicId(topic)] ?? null;
+}
+
+export function setCachedQuiz(topic, questions) {
+  const cache = read(KEYS.quizCache, {});
+  cache[topicId(topic)] = questions;
+  write(KEYS.quizCache, cache);
+}
+
+// ---- Practice-exercise cache (topic -> generated practice JSON) ----
+
+export function getCachedPractice(topic) {
+  const cache = read(KEYS.practiceCache, {});
+  return cache[topicId(topic)] ?? null;
+}
+
+export function setCachedPractice(topic, practice) {
+  const cache = read(KEYS.practiceCache, {});
+  cache[topicId(topic)] = practice;
+  write(KEYS.practiceCache, cache);
 }
 
 // ---- Library (one row per topic) ----
