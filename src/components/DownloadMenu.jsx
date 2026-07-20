@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { downloadMarkdown, downloadJSON, downloadLessonPdf, downloadLessonDocx, downloadPracticeZip } from "../lib/export.js";
-import { generatePractice } from "../lib/api.js";
+import {
+  downloadMarkdown,
+  downloadJSON,
+  downloadLessonPdf,
+  downloadLessonDocx,
+  downloadPracticeZip,
+  downloadAllDifficultiesPdf,
+  downloadAllDifficultiesDocx,
+} from "../lib/export.js";
+import { generatePractice, teachTopic } from "../lib/api.js";
 
-export default function DownloadMenu({ lesson }) {
+const OTHER_DIFFICULTIES = { eli12: ["standard", "deep"], standard: ["eli12", "deep"], deep: ["eli12", "standard"] };
+
+export default function DownloadMenu({ lesson, difficulty = "standard" }) {
   const [open, setOpen] = useState(false);
   const [generatingZip, setGeneratingZip] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(null); // "pdf" | "docx" | null
   const [error, setError] = useState(null);
   const ref = useRef(null);
 
@@ -30,11 +41,44 @@ export default function DownloadMenu({ lesson }) {
     }
   }
 
+  // Fetches the two difficulty levels not currently on screen (via the
+  // normal client/server-cached teachTopic — never a dedicated extra
+  // call) and combines all three into one document.
+  async function handleAllDifficulties(format) {
+    setError(null);
+    setGeneratingAll(format);
+    try {
+      const others = OTHER_DIFFICULTIES[difficulty] ?? ["eli12", "deep"];
+      const results = await Promise.all(others.map((d) => teachTopic(lesson.topic, d)));
+      const byDifficulty = { [difficulty]: lesson };
+      others.forEach((d, i) => {
+        byDifficulty[d] = results[i].lesson;
+      });
+      if (format === "pdf") await downloadAllDifficultiesPdf(lesson.topic, byDifficulty);
+      else await downloadAllDifficultiesDocx(lesson.topic, byDifficulty);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGeneratingAll(null);
+      setOpen(false);
+    }
+  }
+
   const items = [
     { label: "📄 PDF", action: () => downloadLessonPdf(lesson) },
     { label: "📝 Word (.docx)", action: () => downloadLessonDocx(lesson) },
     { label: "🔡 Markdown", action: () => downloadMarkdown(lesson) },
     { label: "{ } JSON", action: () => downloadJSON(lesson) },
+    {
+      label: generatingAll === "pdf" ? "⏳ Combining…" : "📚 All 3 Difficulties (PDF)",
+      action: () => handleAllDifficulties("pdf"),
+      disabled: Boolean(generatingAll),
+    },
+    {
+      label: generatingAll === "docx" ? "⏳ Combining…" : "📚 All 3 Difficulties (Word)",
+      action: () => handleAllDifficulties("docx"),
+      disabled: Boolean(generatingAll),
+    },
   ];
   if (lesson.is_code_relevant) {
     items.push({ label: generatingZip ? "⏳ Building ZIP…" : "🧪 Practice ZIP (code + dataset)", action: handlePracticeZip, disabled: generatingZip });
@@ -49,7 +93,7 @@ export default function DownloadMenu({ lesson }) {
         ⬇ Download
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+        <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
           {items.map((item) => (
             <button
               key={item.label}
