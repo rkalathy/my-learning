@@ -100,6 +100,15 @@ src/
   treatment (or explicitly justify skipping a layer in a comment) — see
   `api/quiz.js`/`api/grade.js`/`api/practice.js` for the pattern at
   smaller scale.
+- **Quiz questions and practice exercises are ALSO client-cached by
+  topic** (`store.getCachedQuiz`/`setCachedQuiz`,
+  `getCachedPractice`/`setCachedPractice`, checked first in
+  `generateQuiz()`/`generatePractice()` in `src/lib/api.js`) — added
+  after real usage showed every "Quiz Me" retry regenerating fresh
+  questions even for an already-quizzed topic, since the server-side LRU
+  alone doesn't reliably survive Vercel cold starts. Grading itself
+  (`api/grade.js`) is intentionally NOT cached — answers differ every
+  attempt, so there's nothing to reuse.
 - **Quiz grading is always ONE API call for all answers**, never one
   call per question. `api/grade.js` takes the full `answers[]` array.
   `QuizMode.jsx` is reused for both the 5-question "Quiz Me" flow and
@@ -182,3 +191,24 @@ queue, three-layer caching + a Usage metrics panel, PDF/Word +
 practice-ZIP download, and this documentation trio. Compare mode and
 voice input (SHOULD-priority) are also built. Flashcard swipe view and
 public share links (COULD-priority) are not built.
+
+Post-launch fixes from real usage: `/api/teach` and `/api/grade`
+`max_tokens` raised (both were truncating mid-JSON); `quiz.js`/
+`grade.js`/`practice.js` gained the same retry-once-on-invalid-JSON
+behavior `teach.js` already had; Compare page's two-column layout fixed
+(a flex-sizing bug collapsed the left column to 1px); quiz/practice
+generation gained client-side caching by topic (previously only lessons
+were client-cached — every quiz retry was a wasted API call); the
+practice ZIP's `SETUP_GUIDE.md` became a real `SETUP_GUIDE.pdf` (jsPDF,
+not LLM-generated, same as before); a PDF text sanitizer
+(`sanitizeForPdf` in `src/lib/export.js`) strips/replaces Unicode
+characters jsPDF's standard fonts can't render (arrows, em-dashes, curly
+quotes) — apply it to any new raw `pdf.text()`/`splitTextToSize()` call;
+`CopyButton` gained a `variant` prop after a class-concatenation bug made
+its text invisible on dark code blocks; the page background got a subtle
+colorful gradient wash and section cards got tinted backgrounds; the
+Header now embeds a persistent compact `SearchBar` on every page, not
+just Home; and `DownloadMenu` gained a combined "All 3 Difficulties"
+PDF/Word export (fetches the two off-screen difficulties via the normal
+cached `teachTopic()`, then reuses `buildLessonPdf`/
+`buildLessonDocxSections` per difficulty).
