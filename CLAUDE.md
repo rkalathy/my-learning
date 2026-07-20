@@ -122,18 +122,37 @@ src/
   already caught `/api/grade` truncating mid-response with no retry
   before this helper existed.
 - **Practice-exercise generation is on-demand only**, triggered by
-  clicking "Download practice ZIP" — never as part of the main teaching
-  call. This keeps every lesson generation's `max_tokens` (1600/2400/3600
-  by difficulty — see `api/_prompts.js` for why these are higher than the
-  original spec's estimate) cheap regardless of whether a ZIP is ever
-  requested.
-- **The SETUP_GUIDE.md inside a practice ZIP is templated in
-  `src/lib/export.js`'s `buildSetupGuide()`, not written by the LLM.**
-  Only the topic-specific fields (filename, run command, expected
-  output, extra setup notes) come from `api/practice.js`; the
-  Windows/Mac venv/activate/troubleshooting boilerplate is static. Don't
-  ask the model to generate the whole guide — that's both more expensive
-  and less reliable for OS-specific instructions.
+  clicking "Download Practice Notebook" — never as part of the main
+  teaching call. This keeps every lesson generation's `max_tokens`
+  (1600/2400/3600 by difficulty — see `api/_prompts.js` for why these are
+  higher than the original spec's estimate) cheap regardless of whether a
+  notebook is ever requested.
+- **The practice download is ONE `.ipynb` covering all 3 difficulty
+  levels, not one script per difficulty.** `api/practice.js` is called
+  once per difficulty (eli12/standard/deep — each cached separately, by
+  `topic+difficulty`, in both the client cache and the server LRU) and
+  always generates Python, even for JS-flavored topics, specifically
+  because all three exercises must run in one Jupyter kernel —
+  `buildNotebook()` in `src/lib/export.js` combines them into
+  `practice.ipynb` with one markdown+code cell pair per difficulty.
+  `mergeRequirements()` dedupes `requirements.txt` by package name across
+  all three; if a difficulty needs a dataset, its filename is namespaced
+  (`<difficulty>_<filename>`) and the matching string is rewritten inside
+  that difficulty's code cell to keep them in sync — don't rename one
+  without the other.
+- **`SETUP_GUIDE.pdf` inside the practice ZIP is templated in
+  `src/lib/export.js`'s `buildSetupGuidePdf()`, not written by the LLM.**
+  It only covers environment setup (Python, venv, Jupyter, requirements) —
+  per-difficulty expected output lives in the notebook's own markdown
+  cells, not duplicated here. Don't ask the model to generate the whole
+  guide — that's both more expensive and less reliable for exact
+  step-by-step instructions.
+- **Per-lesson Markdown/JSON export was removed** (PDF/Word cover the
+  same content). Don't re-add a "Markdown" or "JSON" item to
+  `DownloadMenu` without checking this was a deliberate choice, not an
+  oversight — see the "Post-launch fixes" note below. The Library page's
+  whole-library JSON backup (`exportLibraryAsJSON` in `store.js`) is a
+  different, unrelated feature and stays.
 - **Compare mode reuses the two topics' already-fetched lessons**
   (`ComparePage.jsx` pulls `one_line`/`why`/first `step`/first
   `confusion` from each) rather than a dedicated third LLM call. This is
@@ -212,3 +231,15 @@ just Home; and `DownloadMenu` gained a combined "All 3 Difficulties"
 PDF/Word export (fetches the two off-screen difficulties via the normal
 cached `teachTopic()`, then reuses `buildLessonPdf`/
 `buildLessonDocxSections` per difficulty).
+
+Second round of post-launch fixes: per-lesson Markdown/JSON export
+removed from `DownloadMenu` (PDF/Word cover the same content); added a
+combined "Interview Prep — All Levels" PDF/Word export (Interview Corner
+only, across all 3 difficulties); the practice download is now ONE
+`practice.ipynb` covering all 3 difficulty levels (previously a single
+`.py`/`.js` script for whichever difficulty was on screen) — see
+`buildNotebook()`/`mergeRequirements()` in `src/lib/export.js` and the
+practice-generation notes above; `PRACTICE_MAX_TOKENS` raised 1800->3000
+after the new difficulty-aware prompt's "deep" tier (which explicitly
+asks for edge-case handling) started truncating mid-JSON at the old
+ceiling — same failure class as the teach/grade fixes above.

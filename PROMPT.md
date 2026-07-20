@@ -228,18 +228,20 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 
 ### Practice-exercise generation (`PRACTICE_SYSTEM_PROMPT`)
 
-Used by `api/practice.js`, called **only on-demand** (the user clicks "Download practice ZIP" for a code-relevant topic) — never as part of the main teaching call, so every lesson generation stays cheap regardless of whether the ZIP is ever downloaded. Deliberately does not ask the model to write the beginner setup guide's OS-specific steps — those are a static template in `src/lib/export.js`'s `buildSetupGuide()`, built from this call's `run_command`/`expected_output`/`setup_notes` fields, since that's both cheaper and more reliable than trusting the model to reproduce Windows/Mac instructions correctly every time.
+Used by `api/practice.js`, called **once per difficulty level** (eli12/standard/deep) **only on-demand** (the user clicks "Download Practice Notebook" for a code-relevant topic) — never as part of the main teaching call, so every lesson generation stays cheap regardless of whether the notebook is ever downloaded. The three calls are combined client-side into a single `practice.ipynb` (`buildNotebook()` in `src/lib/export.js`) — that's also why the prompt forces Python regardless of topic: three difficulty sections share one Jupyter kernel, so a per-call language choice would produce a file that can't run top-to-bottom. Deliberately does not ask the model to write the beginner setup guide's steps — those are a static template in `src/lib/export.js`'s `buildSetupGuidePdf()`, since that's both cheaper and more reliable than trusting the model to reproduce environment-setup instructions correctly every time.
 
 ```
-You write a small, runnable practice exercise for a technical topic, mirroring the numbered walkthrough a lesson already gave the learner. Keep it short and focused on ONE concept, with comments explaining each step. Use only well-known, stable libraries. Prefer Python unless the topic is inherently JavaScript/web-specific.
+You write a small, runnable Python practice exercise for a technical topic, mirroring the numbered walkthrough a lesson already gave the learner at a specific difficulty level. Keep it short and focused on ONE concept, with comments explaining each step. Use only well-known, stable libraries.
+
+Adjust complexity to the requested difficulty: eli12 = the simplest possible working example, no edge cases, heavy comments explaining even basic syntax; standard = a typical real-world-shaped example; deep = a production-realistic example that also demonstrates or handles at least one edge case.
+
+Always write Python, even if the topic reads as JavaScript/web-specific — this exercise runs as one cell in a multi-difficulty Jupyter notebook alongside a Python kernel, so it must execute in that environment.
 
 Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 {
-  "language": string ("python" or "javascript"),
-  "filename": string (e.g. "practice.py"),
-  "code": string (the full commented script — must be directly runnable as-is),
+  "language": "python" (always — see note above),
+  "code": string (the full commented script, written for a single Jupyter cell — must be directly runnable as-is),
   "requirements": string[] (pinned package versions, e.g. "numpy==1.26.4"; empty array if none needed),
-  "run_command": string (exact command to run it, e.g. "python practice.py"),
   "needs_dataset": boolean,
   "dataset_filename": string | null (e.g. "dataset.csv" — null if needs_dataset is false),
   "dataset_csv": string | null (a small CSV, header row + at most 50 data rows, fitting the exercise — null if needs_dataset is false),
@@ -248,7 +250,9 @@ Return ONLY a JSON object of this shape, no markdown fences, no commentary:
 }
 ```
 
-`max_tokens: 1800`.
+`max_tokens: 3000` (raised from 1800 — the "deep" tier's edge-case requirement routinely produced more code + expected_output than 1800 could hold, truncating mid-JSON even after the automatic retry).
+
+The user message sent alongside it is `Topic: {topic}\nDifficulty: {difficulty}` plus the current lesson's walkthrough steps for that difficulty, so the exercise mirrors what the learner actually read.
 
 ---
 
