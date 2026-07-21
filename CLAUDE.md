@@ -273,3 +273,39 @@ identical budget, which previously guaranteed the retry would truncate
 the same way. If a truncation report recurs again, check whether it's
 still a raw ceiling problem (stress-test a topic spread per endpoint,
 same as this round) before assuming the concise-retry alone will save it.
+
+**Model choice (fifth round):** `MODEL` switched from `claude-sonnet-4-6`
+to `claude-haiku-4-5` — roughly 3x cheaper on both input and output
+tokens ($1/$5 vs $3/$15 per 1M as of this writing), and in testing
+Haiku's raw output token counts ran LOWER than Sonnet's for equivalent
+topics too, so the real-world savings are closer to 70% than the raw
+3x price ratio suggests. This was a direct response to repeated
+"token usage feels high" reports.
+
+The switch was NOT a blind swap — testing surfaced a real reliability
+gap first: Haiku occasionally (roughly 1 in 11 lesson-generation calls
+in testing) returns syntactically valid JSON that's silently missing
+required fields (e.g. `confusions`, `interview_qa` absent entirely).
+This passes `JSON.parse()` cleanly, so nothing caught it before — it
+would have shipped a lesson object that crashes the frontend the moment
+a component reads the missing field. **Do not treat this as "Haiku is
+broken, revert to Sonnet"** — the fix that made the switch safe is
+`validateLessonShape()` in `api/_prompts.js` (checks all 16 required
+fields are present, plus minimum array lengths for
+steps/interview_qa/confusions/related_next) wired into `api/teach.js`'s
+existing retry path, plus equivalent inline `validate` functions passed
+to `createJsonCompletion()` in `api/quiz.js`/`api/grade.js`/
+`api/practice.js`. **This validation is now load-bearing for ANY model
+choice**, not just Haiku — if you ever touch the lesson/quiz/grade/
+practice JSON shapes, update the matching validator in the same commit,
+the same discipline as keeping PROMPT.md in sync with `_prompts.js`.
+
+If cost needs to drop further, or if Haiku's content quality proves
+insufficient in practice (spot-check real generated lessons
+periodically, not just schema completeness), the two other options
+considered were: (a) a hybrid split — Haiku for quiz/grade/practice,
+Sonnet for the higher-stakes teach.js call — or (b) `claude-sonnet-5`,
+which had temporary intro pricing ($2/$10 vs $3/$15) through
+2026-08-31 but reverts to full Sonnet pricing after, so it wasn't a
+durable cost fix. Re-evaluate against `shared/models.md`-equivalent
+current pricing before assuming either is still the right trade-off.
