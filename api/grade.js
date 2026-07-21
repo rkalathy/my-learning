@@ -45,6 +45,12 @@ export default async function handler(req, res) {
       maxTokens: GRADING_MAX_TOKENS,
       systemPrompt: QUIZ_GRADING_SYSTEM_PROMPT,
       userMessage,
+      validate: (p) => {
+        if (!Array.isArray(p.results) || p.results.length !== answers.length) return `results must be an array of exactly ${answers.length} items`;
+        if (typeof p.overall_score !== "number") return "overall_score must be a number";
+        if (!p.summary) return "summary is required";
+        return null;
+      },
     });
     res.status(200).json({
       ...parsed,

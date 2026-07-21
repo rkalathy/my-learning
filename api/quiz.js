@@ -46,6 +46,11 @@ export default async function handler(req, res) {
       maxTokens: QUIZ_MAX_TOKENS,
       systemPrompt: QUIZ_GENERATION_SYSTEM_PROMPT,
       userMessage: `Topic: ${topic.trim()}`,
+      validate: (p) => {
+        if (!Array.isArray(p.questions) || p.questions.length !== 5) return "questions must be an array of exactly 5 items";
+        if (p.questions.some((q) => !q.q)) return "every question needs a non-empty q field";
+        return null;
+      },
     });
     quizCache.set(key, parsed.questions);
     res.status(200).json({

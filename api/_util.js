@@ -25,10 +25,19 @@ export function cacheKey(parts) {
 // truncation, ask for a more concise answer instead of just repeating
 // the request, so the retry has a real chance of fitting even if this
 // particular ceiling turns out tight for this particular topic.
-function retryInstruction(userMessage, truncated) {
+//
+// `issue` is a human-readable description of what's actually wrong —
+// either a JSON.parse error message, or a message from the caller's
+// `validate()` (see createJsonCompletion below). Passing the SPECIFIC
+// problem back to the model (not just "try again") is what makes the
+// second attempt meaningfully more likely to succeed than the first —
+// found necessary after switching to a cheaper/faster model that
+// sometimes returns syntactically valid JSON silently missing required
+// fields (no parse error, so nothing would have caught it without this).
+function retryInstruction(userMessage, truncated, issue) {
   const correction = truncated
     ? "Your previous response was cut off before completing valid JSON — it ran too long for the available length. This time, write MORE CONCISELY (shorter paragraphs, fewer words per field) while still including every required field with real content, so the complete JSON fits. Return ONLY the raw JSON object — no markdown fences, no extra text."
-    : "Your previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.";
+    : `Your previous response was invalid or incomplete (${issue}). Return a COMPLETE, valid JSON object matching the required shape exactly — every field present, no markdown fences, no extra text.`;
   return `${userMessage}\n\n${correction}`;
 }
 
@@ -38,8 +47,15 @@ function retryInstruction(userMessage, truncated) {
  * uniformly (originally only implemented in teach.js's streaming path —
  * quiz.js/grade.js/practice.js need it too, since any of them can truncate
  * or wander off-format just like the lesson call can).
+ *
+ * `validate(parsed)` is optional: return a short string describing what's
+ * wrong (missing/malformed field) to trigger the same retry path as a
+ * JSON.parse failure, or null/undefined if the shape is acceptable.
+ * Without this, a syntactically valid but incomplete response (e.g.
+ * missing a required field) would silently pass through and only fail
+ * later, deep in a component that assumes the field exists.
  */
-export async function createJsonCompletion({ client, model, maxTokens, systemPrompt, userMessage }) {
+export async function createJsonCompletion({ client, model, maxTokens, systemPrompt, userMessage, validate }) {
   async function attempt(message) {
     const response = await client.messages.create({
       model,
@@ -51,12 +67,19 @@ export async function createJsonCompletion({ client, model, maxTokens, systemPro
     return { raw: textBlock ? textBlock.text : "", usage: response.usage, truncated: response.stop_reason === "max_tokens" };
   }
 
+  function parse(raw) {
+    const parsed = JSON.parse(extractJson(raw));
+    const issue = validate?.(parsed);
+    if (issue) throw new Error(issue);
+    return parsed;
+  }
+
   let { raw, usage, truncated } = await attempt(userMessage);
   try {
-    return { parsed: JSON.parse(extractJson(raw)), usage };
-  } catch {
-    ({ raw, usage } = await attempt(retryInstruction(userMessage, truncated)));
-    return { parsed: JSON.parse(extractJson(raw)), usage };
+    return { parsed: parse(raw), usage };
+  } catch (err) {
+    ({ raw, usage } = await attempt(retryInstruction(userMessage, truncated, err.message)));
+    return { parsed: parse(raw), usage };
   }
 }
 

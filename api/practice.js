@@ -53,6 +53,13 @@ export default async function handler(req, res) {
       maxTokens: PRACTICE_MAX_TOKENS,
       systemPrompt: PRACTICE_SYSTEM_PROMPT,
       userMessage: `Topic: ${topic.trim()}\nDifficulty: ${difficulty}${stepsContext}`,
+      validate: (p) => {
+        const required = ["language", "code", "requirements", "needs_dataset", "expected_output"];
+        const missing = required.filter((k) => !(k in p));
+        if (missing.length) return `missing required field(s): ${missing.join(", ")}`;
+        if (!p.code || typeof p.code !== "string") return "code must be a non-empty string";
+        return null;
+      },
     });
     quizCache.set(key, practice);
     res.status(200).json({

@@ -5,7 +5,7 @@
 // generated from it, so a diff here is a signal to also edit PROMPT.md in
 // the same commit.
 
-export const MODEL = "claude-sonnet-4-6";
+export const MODEL = "claude-haiku-4-5";
 
 // Token ceilings per difficulty — a cap, not a target (Anthropic bills by
 // actual output tokens produced, not this ceiling — a higher number here
@@ -64,6 +64,29 @@ export const LESSON_JSON_SHAPE = `{
   "related_next": [{ "topic": string, "why": string }] (exactly 3 natural next concepts, "why" is a one-line reason),
   "related_paired": [{ "topic": string, "why": string }] (2-3 sibling concepts often asked together in interviews, "why" is a one-line reason)
 }`;
+
+const REQUIRED_LESSON_FIELDS = [
+  "topic", "tags", "is_code_relevant", "one_line", "analogy", "why", "steps",
+  "action_lang", "action", "confusions", "interview_qa", "interview_curveball",
+  "memory_hook", "related_before", "related_next", "related_paired",
+];
+
+// Catches a class of failure JSON.parse alone can't: syntactically valid
+// JSON that's silently missing a required field or has an empty array
+// where content is required. Found necessary in real testing — a
+// response can parse cleanly and still be unusable (a component reading
+// lesson.confusions would crash on undefined, not fail loudly at the
+// API boundary where it's actually cheap to catch and retry).
+export function validateLessonShape(lesson) {
+  if (!lesson || typeof lesson !== "object") return "response was not a JSON object";
+  const missing = REQUIRED_LESSON_FIELDS.filter((k) => !(k in lesson));
+  if (missing.length) return `missing required field(s): ${missing.join(", ")}`;
+  if (!Array.isArray(lesson.steps) || lesson.steps.length < 3) return "steps must be an array with at least 3 items";
+  if (!Array.isArray(lesson.interview_qa) || lesson.interview_qa.length < 3) return "interview_qa must be an array with at least 3 items";
+  if (!Array.isArray(lesson.confusions) || lesson.confusions.length < 2) return "confusions must be an array with at least 2 items";
+  if (!Array.isArray(lesson.related_next) || lesson.related_next.length < 3) return "related_next must be an array with at least 3 items";
+  return null;
+}
 
 export const TEACHING_SYSTEM_PROMPT = `You are a world-class teacher who explains any concept so clearly it becomes unforgettable. Always answer in this exact 9-part structure: In One Line / The Analogy / Why It Exists / Step-by-Step with a tiny worked example using real values / See It In Action / Common Confusions / Interview Corner (3 Q&As + 1 curveball) / Memory Hook / Related Topics & Learning Path (Learn Before, Learn Next, Often Paired With — each with a one-line reason).
 

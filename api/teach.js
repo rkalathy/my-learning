@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { MODEL, MAX_TOKENS_BY_DIFFICULTY, TEACHING_SYSTEM_PROMPT } from "./_prompts.js";
+import { MODEL, MAX_TOKENS_BY_DIFFICULTY, TEACHING_SYSTEM_PROMPT, validateLessonShape } from "./_prompts.js";
 import { extractJson, cacheKey, lessonCache } from "./_util.js";
 
 export const config = { runtime: "nodejs" };
@@ -54,11 +54,22 @@ async function streamLesson(client, res, topic, difficulty, correction) {
 // wandered off-format — if the first attempt actually ran out of
 // max_tokens mid-string, asking for the SAME content in the SAME budget
 // just reproduces the identical truncation. When that's what happened,
-// ask for a more concise answer instead.
-function retryCorrection(truncated) {
+// ask for a more concise answer instead. `issue` (from validateLessonShape
+// or a JSON.parse error message) is fed back so the model knows exactly
+// what was wrong, not just "try again" — found necessary once a
+// cheaper/faster model started occasionally returning syntactically
+// valid JSON that silently dropped a required field.
+function retryCorrection(truncated, issue) {
   return truncated
     ? "Your previous response was cut off before completing valid JSON — it ran too long for the available length. This time, write MORE CONCISELY (shorter paragraphs, fewer words per field, trim the least essential steps/confusions) while still including every required field with real content, so the complete JSON fits. Return ONLY the raw JSON object — no markdown fences, no extra text."
-    : "Your previous response did not parse as valid JSON matching the required shape. Return ONLY the raw JSON object this time — no markdown fences, no extra text.";
+    : `Your previous response was invalid or incomplete (${issue}). Return a COMPLETE, valid JSON object matching the required shape exactly — every field present, no markdown fences, no extra text.`;
+}
+
+function parseLesson(raw) {
+  const lesson = JSON.parse(extractJson(raw));
+  const issue = validateLessonShape(lesson);
+  if (issue) throw new Error(issue);
+  return lesson;
 }
 
 export default async function handler(req, res) {
@@ -115,14 +126,17 @@ export default async function handler(req, res) {
     let { raw, usage, truncated } = await streamLesson(client, res, normalizedTopic, difficulty, null);
     let lesson;
     try {
-      lesson = JSON.parse(extractJson(raw));
-    } catch {
+      lesson = parseLesson(raw);
+    } catch (err) {
       // One retry, per the "robust JSON parsing" requirement — the
       // correction differs depending on whether the first attempt was
-      // cut off by max_tokens (ask for brevity) or just malformed (ask
-      // for strict JSON), see retryCorrection() above.
-      ({ raw, usage } = await streamLesson(client, res, normalizedTopic, difficulty, retryCorrection(truncated)));
-      lesson = JSON.parse(extractJson(raw));
+      // cut off by max_tokens (ask for brevity) or just malformed/
+      // incomplete (ask for the specific missing piece), see
+      // retryCorrection() above. parseLesson() catches BOTH invalid JSON
+      // AND syntactically-valid-but-incomplete JSON (missing fields) —
+      // err.message covers either case.
+      ({ raw, usage } = await streamLesson(client, res, normalizedTopic, difficulty, retryCorrection(truncated, err.message)));
+      lesson = parseLesson(raw);
     }
 
     lessonCache.set(key, lesson);
